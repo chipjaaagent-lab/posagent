@@ -4,8 +4,9 @@ import { menuDb, ingredientDb } from '../lib/db'
 import { Plus, Pencil, Trash2, UtensilsCrossed, ChevronDown, ChevronUp, X } from 'lucide-react'
 
 function fmt(n) { return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
-const SIZES = ['', '6 นิ้ว', '7 นิ้ว', '8 นิ้ว', '9 นิ้ว', '10 นิ้ว', '12 นิ้ว', 'S', 'M', 'L']
-const EMPTY_FORM = { name: '', size: '', sellingPrice: '', note: '', recipe: [] }
+const SIZES = ['', '5 นิ้ว (S)', '7 นิ้ว (M)', '9 นิ้ว (L)']
+const MENU_TYPES = ['พิซซ่า', 'ทอปปิ้งเสริม', 'เครื่องดื่ม', 'อื่นๆ']
+const EMPTY_FORM = { name: '', menuType: 'พิซซ่า', size: '', sellingPrice: '', note: '', recipe: [] }
 
 export default function Menus() {
   const { currentShop } = useShop()
@@ -35,7 +36,7 @@ export default function Menus() {
   function openAdd() { setEditMenu(null); setForm(EMPTY_FORM); setAddIngId(''); setAddQty(''); setShowForm(true) }
   function openEdit(menu) {
     setEditMenu(menu)
-    setForm({ name: menu.name, size: menu.size || '', sellingPrice: menu.sellingPrice, note: menu.note || '', recipe: (menu.latestRecipe || []).map(r => ({ ...r })) })
+    setForm({ name: menu.name, menuType: menu.menuType || 'พิซซ่า', size: menu.size || '', sellingPrice: menu.sellingPrice, note: menu.note || '', recipe: (menu.latestRecipe || []).map(r => ({ ...r })) })
     setAddIngId(''); setAddQty(''); setShowForm(true)
   }
 
@@ -64,7 +65,7 @@ export default function Menus() {
     if (!form.name.trim() || !form.sellingPrice) return
     setSaving(true)
     try {
-      const data = { name: form.name.trim(), size: form.size, sellingPrice: Number(form.sellingPrice), note: form.note, latestRecipe: form.recipe.filter(r => Number(r.qty) > 0).map(r => ({ ingredientId: r.ingredientId, qty: Number(r.qty), unitType: r.unitType })) }
+      const data = { name: form.name.trim(), menuType: form.menuType, size: form.size, sellingPrice: Number(form.sellingPrice), note: form.note, latestRecipe: form.recipe.filter(r => Number(r.qty) > 0).map(r => ({ ingredientId: r.ingredientId, qty: Number(r.qty), unitType: r.unitType })) }
       if (editMenu) await menuDb.update(currentShop.id, editMenu.id, data)
       else await menuDb.add(currentShop.id, data)
       await load(); setShowForm(false)
@@ -90,8 +91,19 @@ export default function Menus() {
       {menus.length === 0 ? (
         <div className="empty-state"><UtensilsCrossed size={48} /><p className="font-semibold mt-2">ยังไม่มีเมนู</p><p className="text-sm mt-1">กดปุ่ม + เพื่อเพิ่มเมนูและตั้งสูตร</p></div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {menus.map(menu => {
+        [...MENU_TYPES, ...['__other__']].map(type => {
+          const list = type === '__other__'
+            ? menus.filter(m => !MENU_TYPES.includes(m.menuType))
+            : menus.filter(m => (m.menuType || 'พิซซ่า') === type)
+          if (list.length === 0) return null
+          const label = type === '__other__' ? 'อื่นๆ' : type
+          return (
+        <div key={type} style={{ marginBottom: 20 }}>
+          <h3 style={{ marginBottom: 10, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {label} <span className="badge badge-gray">{list.length}</span>
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {list.map(menu => {
             const expanded = expandedId === menu.id
             const recipeCost = calcRecipeCost(menu.latestRecipe || [])
             const profit = menu.sellingPrice - recipeCost
@@ -135,7 +147,10 @@ export default function Menus() {
               </div>
             )
           })}
+          </div>
         </div>
+          )
+        })
       )}
 
       {showForm && (
@@ -147,6 +162,12 @@ export default function Menus() {
             </div>
             <div className="modal-body">
               <div className="form-group"><label className="form-label">ชื่อเมนู *</label><input className="form-control" placeholder="เช่น ฮาวายเอี้ยน" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus /></div>
+              <div className="form-group">
+                <label className="form-label">ประเภท *</label>
+                <select className="form-control" value={form.menuType} onChange={e => setForm(f => ({ ...f, menuType: e.target.value }))}>
+                  {MENU_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
               <div className="grid-2">
                 <div className="form-group"><label className="form-label">ขนาด</label><select className="form-control" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))}>{SIZES.map(s => <option key={s} value={s}>{s || '— ไม่ระบุ —'}</option>)}</select></div>
                 <div className="form-group"><label className="form-label">ราคาขาย *</label><input className="form-control" type="number" inputMode="decimal" placeholder="บาท" value={form.sellingPrice} onChange={e => setForm(f => ({ ...f, sellingPrice: e.target.value }))} /></div>

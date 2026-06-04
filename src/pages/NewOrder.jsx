@@ -5,6 +5,9 @@ import { Plus, Minus, CheckCircle, ShoppingCart, Trash2, Receipt } from 'lucide-
 
 function fmt(n, d = 2) { return Number(n).toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d }) }
 
+const MENU_TYPES = ['พิซซ่า', 'ทอปปิ้งเสริม', 'เครื่องดื่ม', 'อื่นๆ']
+const MENU_TYPE_ORDER = ['พิซซ่า', 'ทอปปิ้งเสริม', 'เครื่องดื่ม', 'อื่นๆ']
+
 export default function NewOrder() {
   const { currentShop } = useShop()
   const [menus, setMenus] = useState([])
@@ -148,20 +151,32 @@ export default function NewOrder() {
       ) : (
         <>
           <h3 style={{ marginBottom: 10, color: '#6b7280' }}>แตะเมนูเพื่อเพิ่ม</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-            {menus.map(menu => {
-              const inCart = cart.find(c => c.menuId === menu.id)
-              return (
-                <button key={menu.id} onClick={() => addToCart(menu.id)} style={{ position: 'relative', textAlign: 'left', cursor: 'pointer', background: inCart ? '#fff0eb' : 'white', border: '2px solid', borderColor: inCart ? '#FF6B35' : '#e5e7eb', borderRadius: 14, padding: '14px', transition: 'all 0.12s' }}>
-                  {inCart && <span style={{ position: 'absolute', top: 8, right: 8, background: '#FF6B35', color: 'white', borderRadius: 999, minWidth: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 700, padding: '0 6px' }}>{inCart.qty}</span>}
-                  <div className="font-semibold" style={{ fontSize: '0.98rem', paddingRight: 24 }}>{menu.name}</div>
-                  {menu.size && <div className="text-xs text-muted">{menu.size}</div>}
-                  <div className="font-bold text-primary mt-1">{fmt(menu.sellingPrice)} ฿</div>
-                  {(!menu.latestRecipe || menu.latestRecipe.length === 0) && <div className="text-xs text-warning mt-1">⚠ ยังไม่มีสูตร</div>}
-                </button>
-              )
-            })}
-          </div>
+          {MENU_TYPE_ORDER.map(type => {
+            const list = type === 'อื่นๆ'
+              ? menus.filter(m => !MENU_TYPES.includes(m.menuType))
+              : menus.filter(m => (m.menuType || 'พิซซ่า') === type)
+            if (list.length === 0) return null
+            return (
+              <div key={type} style={{ marginBottom: 18 }}>
+                <div className="text-sm font-semibold" style={{ color: '#9ca3af', marginBottom: 8 }}>{type}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {list.map(menu => {
+                    const inCart = cart.find(c => c.menuId === menu.id)
+                    return (
+                      <button key={menu.id} onClick={() => addToCart(menu.id)} style={{ position: 'relative', textAlign: 'left', cursor: 'pointer', background: inCart ? '#fff0eb' : 'white', border: '2px solid', borderColor: inCart ? '#FF6B35' : '#e5e7eb', borderRadius: 14, padding: '14px', transition: 'all 0.12s' }}>
+                        {inCart && <span style={{ position: 'absolute', top: 8, right: 8, background: '#FF6B35', color: 'white', borderRadius: 999, minWidth: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 700, padding: '0 6px' }}>{inCart.qty}</span>}
+                        <div className="font-semibold" style={{ fontSize: '0.98rem', paddingRight: 24 }}>{menu.name}</div>
+                        {menu.size && <div className="text-xs text-muted">{menu.size}</div>}
+                        <div className="font-bold text-primary mt-1">{fmt(menu.sellingPrice)} ฿</div>
+                        {(!menu.latestRecipe || menu.latestRecipe.length === 0) && <div className="text-xs text-warning mt-1">⚠ ยังไม่มีสูตร</div>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+          <div style={{ marginBottom: 4 }} />
 
           {cart.length === 0 ? (
             <div className="empty-state" style={{ padding: '24px' }}><ShoppingCart size={40} /><p className="text-sm mt-2">ยังไม่มีรายการ</p></div>

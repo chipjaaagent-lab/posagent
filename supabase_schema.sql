@@ -43,6 +43,7 @@ create table if not exists menus (
   id uuid primary key default gen_random_uuid(),
   shop_id uuid references shops(id) on delete cascade,
   name text not null,
+  menu_type text default 'พิซซ่า',
   size text default '',
   selling_price numeric not null default 0,
   latest_recipe jsonb default '[]'::jsonb,
@@ -50,6 +51,9 @@ create table if not exists menus (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+-- เพิ่มคอลัมน์สำหรับตารางที่มีอยู่แล้ว
+alter table menus add column if not exists menu_type text default 'พิซซ่า';
 
 -- ── Orders ─────────────────────────────────────────────────────────────────
 create table if not exists orders (
@@ -78,6 +82,11 @@ alter table menus enable row level security;
 alter table orders enable row level security;
 
 -- อนุญาตเฉพาะ user ที่ login แล้ว (whitelist จัดการที่ frontend)
+drop policy if exists "authenticated_all" on shops;
+drop policy if exists "authenticated_all" on channels;
+drop policy if exists "authenticated_all" on ingredients;
+drop policy if exists "authenticated_all" on menus;
+drop policy if exists "authenticated_all" on orders;
 create policy "authenticated_all" on shops for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated_all" on channels for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated_all" on ingredients for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

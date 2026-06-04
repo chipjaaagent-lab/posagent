@@ -197,6 +197,7 @@ export const menuDb = {
     const { data: row, error } = await supabase.from('menus').insert({
       shop_id: shopId,
       name: data.name,
+      menu_type: data.menuType || 'พิซซ่า',
       size: data.size || '',
       selling_price: Number(data.sellingPrice),
       latest_recipe: data.latestRecipe || [],
@@ -209,6 +210,7 @@ export const menuDb = {
   async update(shopId, id, data) {
     const updates = {}
     if (data.name !== undefined) updates.name = data.name
+    if (data.menuType !== undefined) updates.menu_type = data.menuType
     if (data.size !== undefined) updates.size = data.size
     if (data.sellingPrice !== undefined) updates.selling_price = Number(data.sellingPrice)
     if (data.latestRecipe !== undefined) updates.latest_recipe = data.latestRecipe
@@ -233,6 +235,7 @@ function mapMenu(r) {
     id: r.id,
     shopId: r.shop_id,
     name: r.name,
+    menuType: r.menu_type || 'พิซซ่า',
     size: r.size,
     sellingPrice: r.selling_price,
     latestRecipe: r.latest_recipe || [],
