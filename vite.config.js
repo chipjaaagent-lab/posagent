@@ -7,25 +7,34 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon-48.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'POSAgent - จัดการร้านอาหาร',
         short_name: 'POSAgent',
         description: 'ระบบจัดการต้นทุน สูตร ออเดอร์ และกำไรสำหรับร้านอาหาร',
         theme_color: '#FF6B35',
-        background_color: '#ffffff',
+        background_color: '#FF6B35',
         display: 'standalone',
         orientation: 'portrait',
+        start_url: '/',
         icons: [
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       }
