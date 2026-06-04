@@ -4,7 +4,7 @@ import { ingredientDb } from '../lib/db'
 import { Plus, Pencil, Trash2, AlertTriangle, Package, Search } from 'lucide-react'
 
 const UNIT_LABELS = { gram: 'กรัม', piece: 'ชิ้น', fixed_cost: 'ต่อถาด (fixed)' }
-const CATEGORIES = ['', 'โปรตีน', 'ผัก/ผลไม้', 'แป้ง/ซอส', 'ชีส', 'บรรจุภัณฑ์', 'ค่าใช้จ่ายอื่น']
+const CATEGORIES = ['', 'แป้งและบรรจุภัณฑ์', 'ทอปปิ้ง', 'ซอส', 'ชีส']
 
 function fmt(n, d = 2) {
   return Number(n).toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d })
