@@ -1,247 +1,257 @@
-// Data layer — localStorage-based with shop isolation
-// Each key is prefixed with shop_id so shops never share data
-// Structure mirrors future Supabase schema for easy migration
+// Data layer — Supabase
+// ทุก function เป็น async คืน Promise
 
-const PREFIX = 'rcm_'
+import { supabase } from './supabase'
 
-function key(shopId, table) {
-  return `${PREFIX}${shopId}_${table}`
-}
-
-function getAll(shopId, table) {
-  try {
-    return JSON.parse(localStorage.getItem(key(shopId, table)) || '[]')
-  } catch {
-    return []
-  }
-}
-
-function saveAll(shopId, table, data) {
-  localStorage.setItem(key(shopId, table), JSON.stringify(data))
-}
-
-function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
-}
-
-// ─── Shops ────────────────────────────────────────────────────────────────────
+// ── Shops ──────────────────────────────────────────────────────────────────
 
 export const shopDb = {
-  getAll() {
-    try {
-      return JSON.parse(localStorage.getItem(`${PREFIX}shops`) || '[]')
-    } catch {
-      return []
-    }
+  async getAll() {
+    const { data, error } = await supabase.from('shops').select('*').order('created_at')
+    if (error) throw error
+    return data || []
   },
 
-  save(shops) {
-    localStorage.setItem(`${PREFIX}shops`, JSON.stringify(shops))
+  async add(name, emoji = '🍕') {
+    const { data, error } = await supabase.from('shops').insert({ name, emoji }).select().single()
+    if (error) throw error
+    return data
   },
 
-  add(name, emoji = '🍕') {
-    const shops = shopDb.getAll()
-    const shop = { id: genId(), name, emoji, createdAt: new Date().toISOString() }
-    shops.push(shop)
-    shopDb.save(shops)
-    return shop
+  async update(id, updates) {
+    const { error } = await supabase.from('shops').update(updates).eq('id', id)
+    if (error) throw error
   },
 
-  update(id, data) {
-    const shops = shopDb.getAll().map(s => s.id === id ? { ...s, ...data } : s)
-    shopDb.save(shops)
-  },
-
-  delete(id) {
-    shopDb.save(shopDb.getAll().filter(s => s.id !== id))
+  async delete(id) {
+    const { error } = await supabase.from('shops').delete().eq('id', id)
+    if (error) throw error
   }
 }
 
-// ─── Sales Channels ───────────────────────────────────────────────────────────
-// แต่ละช่องทางมี GP% และค่า Ads default ของตัวเอง
-// gpPercent: % ที่แพลตฟอร์มหักจากยอดขาย
-// adsDefault: ค่าโฆษณาต่อออเดอร์ (บาท) — แตะเปิด/ปิดได้ตอนเปิดออเดอร์
+// ── Channels ───────────────────────────────────────────────────────────────
 
 const DEFAULT_CHANNELS = [
-  { name: 'หน้าร้าน', gpPercent: 0, adsDefault: 0, isDefault: false },
-  { name: 'LINE MAN', gpPercent: 30, adsDefault: 20, isDefault: true },
+  { name: 'หน้าร้าน', gp_percent: 0, ads_default: 0, is_default: false },
+  { name: 'LINE MAN', gp_percent: 30, ads_default: 20, is_default: true },
 ]
 
 export const channelDb = {
-  getAll(shopId) {
-    let items = getAll(shopId, 'channels')
-    if (items.length === 0) {
-      // seed default channels on first access
-      items = DEFAULT_CHANNELS.map(c => ({ id: genId(), shopId, ...c, createdAt: new Date().toISOString() }))
-      saveAll(shopId, 'channels', items)
+  async getAll(shopId) {
+    const { data, error } = await supabase.from('channels').select('*').eq('shop_id', shopId).order('created_at')
+    if (error) throw error
+
+    if (!data || data.length === 0) {
+      // seed defaults
+      const inserts = DEFAULT_CHANNELS.map(c => ({ ...c, shop_id: shopId }))
+      const { data: seeded, error: e2 } = await supabase.from('channels').insert(inserts).select()
+      if (e2) throw e2
+      return seeded || []
     }
-    return items
+    return data.map(mapChannel)
   },
 
-  add(shopId, data) {
-    const items = channelDb.getAll(shopId)
-    const item = {
-      id: genId(),
-      shopId,
+  async add(shopId, data) {
+    const { data: row, error } = await supabase.from('channels').insert({
+      shop_id: shopId,
       name: data.name,
-      gpPercent: Number(data.gpPercent || 0),
-      adsDefault: Number(data.adsDefault || 0),
-      isDefault: false,
-      createdAt: new Date().toISOString(),
-    }
-    items.push(item)
-    saveAll(shopId, 'channels', items)
-    return item
+      gp_percent: Number(data.gpPercent || 0),
+      ads_default: Number(data.adsDefault || 0),
+      is_default: false,
+    }).select().single()
+    if (error) throw error
+    return mapChannel(row)
   },
 
-  update(shopId, id, data) {
-    const items = channelDb.getAll(shopId).map(c =>
-      c.id === id ? {
-        ...c,
-        ...data,
-        gpPercent: data.gpPercent !== undefined ? Number(data.gpPercent) : c.gpPercent,
-        adsDefault: data.adsDefault !== undefined ? Number(data.adsDefault) : c.adsDefault,
-      } : c
-    )
-    saveAll(shopId, 'channels', items)
+  async update(shopId, id, data) {
+    const updates = {}
+    if (data.name !== undefined) updates.name = data.name
+    if (data.gpPercent !== undefined) updates.gp_percent = Number(data.gpPercent)
+    if (data.adsDefault !== undefined) updates.ads_default = Number(data.adsDefault)
+    const { error } = await supabase.from('channels').update(updates).eq('id', id).eq('shop_id', shopId)
+    if (error) throw error
   },
 
-  delete(shopId, id) {
-    saveAll(shopId, 'channels', channelDb.getAll(shopId).filter(c => c.id !== id))
+  async delete(shopId, id) {
+    const { error } = await supabase.from('channels').delete().eq('id', id).eq('shop_id', shopId)
+    if (error) throw error
   }
 }
 
-// ─── Ingredients ──────────────────────────────────────────────────────────────
-// unitType: 'gram' | 'piece' | 'fixed_cost'
+function mapChannel(c) {
+  return {
+    id: c.id,
+    shopId: c.shop_id,
+    name: c.name,
+    gpPercent: c.gp_percent,
+    adsDefault: c.ads_default,
+    isDefault: c.is_default,
+    createdAt: c.created_at,
+  }
+}
+
+// ── Ingredients ────────────────────────────────────────────────────────────
 
 export const ingredientDb = {
-  getAll(shopId) {
-    return getAll(shopId, 'ingredients')
+  async getAll(shopId) {
+    const { data, error } = await supabase.from('ingredients').select('*').eq('shop_id', shopId).order('created_at')
+    if (error) throw error
+    return (data || []).map(mapIngredient)
   },
 
-  add(shopId, data) {
-    const items = ingredientDb.getAll(shopId)
-    const item = {
-      id: genId(),
-      shopId,
+  async add(shopId, data) {
+    const costPerUnit = Number(data.purchasePrice) / Number(data.purchaseQty)
+    const { data: row, error } = await supabase.from('ingredients').insert({
+      shop_id: shopId,
       name: data.name,
       category: data.category || '',
-      unitType: data.unitType || 'gram',
-      purchaseQty: Number(data.purchaseQty),
-      purchasePrice: Number(data.purchasePrice),
-      costPerUnit: Number(data.purchasePrice) / Number(data.purchaseQty),
+      unit_type: data.unitType || 'gram',
+      purchase_qty: Number(data.purchaseQty),
+      purchase_price: Number(data.purchasePrice),
+      cost_per_unit: costPerUnit,
       stock: Number(data.stock ?? data.purchaseQty),
-      lowStockThreshold: Number(data.lowStockThreshold || 0),
+      low_stock_threshold: Number(data.lowStockThreshold || 0),
       note: data.note || '',
-      purchaseDate: data.purchaseDate || null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      purchase_date: data.purchaseDate || null,
+    }).select().single()
+    if (error) throw error
+    return mapIngredient(row)
+  },
+
+  async update(shopId, id, data) {
+    const updates = {}
+    if (data.name !== undefined) updates.name = data.name
+    if (data.category !== undefined) updates.category = data.category
+    if (data.unitType !== undefined) updates.unit_type = data.unitType
+    if (data.purchaseQty !== undefined) updates.purchase_qty = Number(data.purchaseQty)
+    if (data.purchasePrice !== undefined) updates.purchase_price = Number(data.purchasePrice)
+    if (data.purchaseQty !== undefined || data.purchasePrice !== undefined) {
+      const qty = data.purchaseQty || data._purchaseQty
+      const price = data.purchasePrice || data._purchasePrice
+      if (qty && price) updates.cost_per_unit = Number(price) / Number(qty)
     }
-    items.push(item)
-    saveAll(shopId, 'ingredients', items)
-    return item
+    if (data.stock !== undefined) updates.stock = Number(data.stock)
+    if (data.lowStockThreshold !== undefined) updates.low_stock_threshold = Number(data.lowStockThreshold)
+    if (data.note !== undefined) updates.note = data.note
+    if (data.purchaseDate !== undefined) updates.purchase_date = data.purchaseDate || null
+    updates.updated_at = new Date().toISOString()
+    const { error } = await supabase.from('ingredients').update(updates).eq('id', id).eq('shop_id', shopId)
+    if (error) throw error
   },
 
-  update(shopId, id, data) {
-    const items = ingredientDb.getAll(shopId).map(item => {
-      if (item.id !== id) return item
-      const updated = { ...item, ...data, updatedAt: new Date().toISOString() }
-      if (data.purchaseQty || data.purchasePrice) {
-        updated.costPerUnit = Number(updated.purchasePrice) / Number(updated.purchaseQty)
-      }
-      return updated
-    })
-    saveAll(shopId, 'ingredients', items)
+  async delete(shopId, id) {
+    const { error } = await supabase.from('ingredients').delete().eq('id', id).eq('shop_id', shopId)
+    if (error) throw error
   },
 
-  delete(shopId, id) {
-    saveAll(shopId, 'ingredients', ingredientDb.getAll(shopId).filter(i => i.id !== id))
+  async deductStock(shopId, usages) {
+    // usages: [{ ingredientId, qty }]
+    const all = await ingredientDb.getAll(shopId)
+    for (const usage of usages) {
+      const ing = all.find(i => i.id === usage.ingredientId)
+      if (!ing) continue
+      const newStock = Math.max(0, ing.stock - usage.qty)
+      await supabase.from('ingredients').update({ stock: newStock, updated_at: new Date().toISOString() })
+        .eq('id', usage.ingredientId).eq('shop_id', shopId)
+    }
   },
 
-  deductStock(shopId, usages) {
-    // usages: [{ ingredientId, qty }] — qty รวมจากทั้งออเดอร์แล้ว
-    const items = ingredientDb.getAll(shopId).map(item => {
-      const usage = usages.find(u => u.ingredientId === item.id)
-      if (!usage) return item
-      return { ...item, stock: Math.max(0, item.stock - usage.qty), updatedAt: new Date().toISOString() }
-    })
-    saveAll(shopId, 'ingredients', items)
-  },
-
-  getLowStock(shopId) {
-    return ingredientDb.getAll(shopId).filter(i =>
-      i.lowStockThreshold > 0 && i.stock <= i.lowStockThreshold
-    )
+  async getLowStock(shopId) {
+    const { data, error } = await supabase.from('ingredients')
+      .select('*').eq('shop_id', shopId)
+      .gt('low_stock_threshold', 0)
+    if (error) throw error
+    return (data || []).map(mapIngredient).filter(i => i.stock <= i.lowStockThreshold)
   }
 }
 
-// ─── Menus ────────────────────────────────────────────────────────────────────
-// latestRecipe: [{ ingredientId, qty, unitType }] — สูตรที่ฟิกไว้
+function mapIngredient(r) {
+  return {
+    id: r.id,
+    shopId: r.shop_id,
+    name: r.name,
+    category: r.category,
+    unitType: r.unit_type,
+    purchaseQty: r.purchase_qty,
+    purchasePrice: r.purchase_price,
+    costPerUnit: r.cost_per_unit,
+    stock: r.stock,
+    lowStockThreshold: r.low_stock_threshold,
+    note: r.note,
+    purchaseDate: r.purchase_date,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
+// ── Menus ──────────────────────────────────────────────────────────────────
 
 export const menuDb = {
-  getAll(shopId) {
-    return getAll(shopId, 'menus')
+  async getAll(shopId) {
+    const { data, error } = await supabase.from('menus').select('*').eq('shop_id', shopId).order('created_at')
+    if (error) throw error
+    return (data || []).map(mapMenu)
   },
 
-  add(shopId, data) {
-    const items = menuDb.getAll(shopId)
-    const item = {
-      id: genId(),
-      shopId,
+  async add(shopId, data) {
+    const { data: row, error } = await supabase.from('menus').insert({
+      shop_id: shopId,
       name: data.name,
       size: data.size || '',
-      sellingPrice: Number(data.sellingPrice),
-      latestRecipe: data.latestRecipe || [],
+      selling_price: Number(data.sellingPrice),
+      latest_recipe: data.latestRecipe || [],
       note: data.note || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    items.push(item)
-    saveAll(shopId, 'menus', items)
-    return item
+    }).select().single()
+    if (error) throw error
+    return mapMenu(row)
   },
 
-  update(shopId, id, data) {
-    const items = menuDb.getAll(shopId).map(item =>
-      item.id === id ? { ...item, ...data, updatedAt: new Date().toISOString() } : item
-    )
-    saveAll(shopId, 'menus', items)
+  async update(shopId, id, data) {
+    const updates = {}
+    if (data.name !== undefined) updates.name = data.name
+    if (data.size !== undefined) updates.size = data.size
+    if (data.sellingPrice !== undefined) updates.selling_price = Number(data.sellingPrice)
+    if (data.latestRecipe !== undefined) updates.latest_recipe = data.latestRecipe
+    if (data.note !== undefined) updates.note = data.note
+    updates.updated_at = new Date().toISOString()
+    const { error } = await supabase.from('menus').update(updates).eq('id', id).eq('shop_id', shopId)
+    if (error) throw error
   },
 
-  delete(shopId, id) {
-    saveAll(shopId, 'menus', menuDb.getAll(shopId).filter(m => m.id !== id))
+  async delete(shopId, id) {
+    const { error } = await supabase.from('menus').delete().eq('id', id).eq('shop_id', shopId)
+    if (error) throw error
   },
 
-  // คำนวณต้นทุนวัตถุดิบของ 1 เมนูจากสูตร + ราคาวัตถุดิบปัจจุบัน
-  calcCost(shopId, recipe) {
-    const ingredients = ingredientDb.getAll(shopId)
-    return (recipe || []).reduce((sum, r) => {
-      const ing = ingredients.find(i => i.id === r.ingredientId)
-      return sum + (ing ? ing.costPerUnit * Number(r.qty) : 0)
-    }, 0)
+  async updateRecipe(shopId, menuId, recipe) {
+    await menuDb.update(shopId, menuId, { latestRecipe: recipe })
   }
 }
 
-// ─── Orders ───────────────────────────────────────────────────────────────────
-// 1 ออเดอร์ = หลายเมนู + ช่องทาง + GP/Ads/คูปอง
-// Snapshot ต้นทุน ณ เวลาขาย — ราคาวัตถุดิบเปลี่ยนภายหลัง ออเดอร์เก่าไม่เปลี่ยน
-//
-// item: {
-//   menuId, menuName, sellingPrice, qty,
-//   ingredients: [{ ingredientId, name, qty, unitType, costPerUnit, subtotal }],  // ต่อ 1 ชิ้น
-//   unitCost,      // ต้นทุนวัตถุดิบต่อ 1 ชิ้น
-//   lineCost,      // unitCost × qty
-//   lineRevenue,   // sellingPrice × qty
-// }
+function mapMenu(r) {
+  return {
+    id: r.id,
+    shopId: r.shop_id,
+    name: r.name,
+    size: r.size,
+    sellingPrice: r.selling_price,
+    latestRecipe: r.latest_recipe || [],
+    note: r.note,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
+// ── Orders ─────────────────────────────────────────────────────────────────
 
 export const orderDb = {
-  getAll(shopId) {
-    return getAll(shopId, 'orders')
+  async getAll(shopId) {
+    const { data, error } = await supabase.from('orders').select('*').eq('shop_id', shopId).order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(mapOrder)
   },
 
-  add(shopId, { channelName, gpPercent, gpEnabled, adsFee, couponDiscount, items }) {
-    const orders = orderDb.getAll(shopId)
-
+  async add(shopId, { channelName, gpPercent, gpEnabled, adsFee, couponDiscount, items }) {
     const subtotal = items.reduce((s, it) => s + it.lineRevenue, 0)
     const totalCost = items.reduce((s, it) => s + it.lineCost, 0)
     const gpAmount = gpEnabled ? subtotal * (Number(gpPercent) / 100) : 0
@@ -249,28 +259,26 @@ export const orderDb = {
     const coupon = Number(couponDiscount) || 0
     const netReceived = subtotal - gpAmount - ads - coupon
     const netProfit = netReceived - totalCost
+    const itemCount = items.reduce((s, it) => s + it.qty, 0)
 
-    const order = {
-      id: genId(),
-      shopId,
-      channelName,
-      gpPercent: Number(gpPercent),
-      gpEnabled: !!gpEnabled,
-      gpAmount,
-      adsFee: ads,
-      couponDiscount: coupon,
+    const { data: row, error } = await supabase.from('orders').insert({
+      shop_id: shopId,
+      channel_name: channelName,
+      gp_percent: Number(gpPercent),
+      gp_enabled: !!gpEnabled,
+      gp_amount: gpAmount,
+      ads_fee: ads,
+      coupon_discount: coupon,
       items,
       subtotal,
-      totalCost,
-      netReceived,
-      netProfit,
-      itemCount: items.reduce((s, it) => s + it.qty, 0),
-      createdAt: new Date().toISOString(),
-    }
-    orders.push(order)
-    saveAll(shopId, 'orders', orders)
+      total_cost: totalCost,
+      net_received: netReceived,
+      net_profit: netProfit,
+      item_count: itemCount,
+    }).select().single()
+    if (error) throw error
 
-    // หักสต็อก — รวม usage ของทุกเมนู × จำนวน
+    // หักสต็อก
     const usageMap = {}
     items.forEach(it => {
       it.ingredients.forEach(ing => {
@@ -278,26 +286,66 @@ export const orderDb = {
       })
     })
     const usages = Object.entries(usageMap).map(([ingredientId, qty]) => ({ ingredientId, qty }))
-    ingredientDb.deductStock(shopId, usages)
+    await ingredientDb.deductStock(shopId, usages)
 
-    return order
+    return mapOrder(row)
   },
 
-  getByDate(shopId, dateStr) {
-    return orderDb.getAll(shopId).filter(o => o.createdAt.startsWith(dateStr))
+  async getByDate(shopId, dateStr) {
+    const start = `${dateStr}T00:00:00.000Z`
+    const end = `${dateStr}T23:59:59.999Z`
+    const { data, error } = await supabase.from('orders').select('*')
+      .eq('shop_id', shopId)
+      .gte('created_at', start)
+      .lte('created_at', end)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(mapOrder)
   },
 
-  getTodaySummary(shopId) {
-    const today = new Date().toISOString().slice(0, 10)
-    const orders = orderDb.getByDate(shopId, today)
+  async getTodaySummary(shopId) {
+    // ใช้เวลาไทย UTC+7
+    const now = new Date()
+    const thai = new Date(now.getTime() + 7 * 60 * 60 * 1000)
+    const dateStr = thai.toISOString().slice(0, 10)
+    const start = new Date(`${dateStr}T00:00:00+07:00`).toISOString()
+    const end = new Date(`${dateStr}T23:59:59+07:00`).toISOString()
+
+    const { data, error } = await supabase.from('orders').select('*')
+      .eq('shop_id', shopId)
+      .gte('created_at', start)
+      .lte('created_at', end)
+    if (error) throw error
+
+    const orders = data || []
     return {
       orderCount: orders.length,
-      itemCount: orders.reduce((s, o) => s + o.itemCount, 0),
-      subtotal: orders.reduce((s, o) => s + o.subtotal, 0),
-      totalFees: orders.reduce((s, o) => s + o.gpAmount + o.adsFee + o.couponDiscount, 0),
-      totalCost: orders.reduce((s, o) => s + o.totalCost, 0),
-      netReceived: orders.reduce((s, o) => s + o.netReceived, 0),
-      netProfit: orders.reduce((s, o) => s + o.netProfit, 0),
+      itemCount: orders.reduce((s, o) => s + (o.item_count || 0), 0),
+      subtotal: orders.reduce((s, o) => s + (o.subtotal || 0), 0),
+      totalFees: orders.reduce((s, o) => s + (o.gp_amount || 0) + (o.ads_fee || 0) + (o.coupon_discount || 0), 0),
+      totalCost: orders.reduce((s, o) => s + (o.total_cost || 0), 0),
+      netReceived: orders.reduce((s, o) => s + (o.net_received || 0), 0),
+      netProfit: orders.reduce((s, o) => s + (o.net_profit || 0), 0),
     }
+  }
+}
+
+function mapOrder(r) {
+  return {
+    id: r.id,
+    shopId: r.shop_id,
+    channelName: r.channel_name,
+    gpPercent: r.gp_percent,
+    gpEnabled: r.gp_enabled,
+    gpAmount: r.gp_amount,
+    adsFee: r.ads_fee,
+    couponDiscount: r.coupon_discount,
+    items: r.items || [],
+    subtotal: r.subtotal,
+    totalCost: r.total_cost,
+    netReceived: r.net_received,
+    netProfit: r.net_profit,
+    itemCount: r.item_count,
+    createdAt: r.created_at,
   }
 }

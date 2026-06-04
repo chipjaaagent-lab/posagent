@@ -1,46 +1,65 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { shopDb } from './db'
+import { useAuth } from './authContext'
 
 const ShopContext = createContext(null)
 
 export function ShopProvider({ children }) {
+  const { user } = useAuth()
   const [shops, setShops] = useState([])
   const [currentShop, setCurrentShop] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const all = shopDb.getAll()
-    setShops(all)
-    const lastId = localStorage.getItem('rcm_last_shop')
-    if (lastId) {
-      const found = all.find(s => s.id === lastId)
-      if (found) setCurrentShop(found)
+    if (user) {
+      loadShops()
+    } else {
+      setShops([])
+      setCurrentShop(null)
+      setLoading(false)
     }
-  }, [])
+  }, [user])
+
+  async function loadShops() {
+    setLoading(true)
+    try {
+      const all = await shopDb.getAll()
+      setShops(all)
+      const lastId = localStorage.getItem('posagent_last_shop')
+      if (lastId) {
+        const found = all.find(s => s.id === lastId)
+        if (found) setCurrentShop(found)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   function selectShop(shop) {
     setCurrentShop(shop)
-    localStorage.setItem('rcm_last_shop', shop.id)
+    if (shop) localStorage.setItem('posagent_last_shop', shop.id)
+    else localStorage.removeItem('posagent_last_shop')
   }
 
-  function addShop(name, emoji) {
-    const shop = shopDb.add(name, emoji)
-    setShops(shopDb.getAll())
+  async function addShop(name, emoji) {
+    const shop = await shopDb.add(name, emoji)
+    await loadShops()
     return shop
   }
 
-  function updateShop(id, data) {
-    shopDb.update(id, data)
-    const updated = shopDb.getAll()
-    setShops(updated)
-    if (currentShop?.id === id) setCurrentShop(updated.find(s => s.id === id))
+  async function updateShop(id, data) {
+    await shopDb.update(id, data)
+    await loadShops()
   }
 
-  function refreshShops() {
-    setShops(shopDb.getAll())
+  async function refreshShops() {
+    await loadShops()
   }
 
   return (
-    <ShopContext.Provider value={{ shops, currentShop, selectShop, addShop, updateShop, refreshShops }}>
+    <ShopContext.Provider value={{ shops, currentShop, loading, selectShop, addShop, updateShop, refreshShops }}>
       {children}
     </ShopContext.Provider>
   )

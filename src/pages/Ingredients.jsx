@@ -10,23 +10,24 @@ function fmt(n, d = 2) {
   return Number(n).toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d })
 }
 
-const EMPTY = {
-  name: '', category: '', unitType: 'gram',
-  purchaseQty: '', purchasePrice: '', stock: '',
-  lowStockThreshold: '', note: '', purchaseDate: ''
-}
+const EMPTY = { name: '', category: '', unitType: 'gram', purchaseQty: '', purchasePrice: '', stock: '', lowStockThreshold: '', note: '', purchaseDate: '' }
 
 export default function Ingredients() {
   const { currentShop } = useShop()
   const [items, setItems] = useState([])
   const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [form, setForm] = useState(EMPTY)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
-  function load() {
-    setItems(ingredientDb.getAll(currentShop.id))
+  async function load() {
+    setLoading(true)
+    try { setItems(await ingredientDb.getAll(currentShop.id)) }
+    catch(e) { console.error(e) }
+    finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [currentShop.id])
@@ -36,83 +37,52 @@ export default function Ingredients() {
     (i.category || '').toLowerCase().includes(search.toLowerCase())
   )
 
-  function openAdd() {
-    setEditItem(null)
-    setForm(EMPTY)
-    setShowForm(true)
-  }
-
+  function openAdd() { setEditItem(null); setForm(EMPTY); setShowForm(true) }
   function openEdit(item) {
     setEditItem(item)
-    setForm({
-      name: item.name,
-      category: item.category || '',
-      unitType: item.unitType,
-      purchaseQty: item.purchaseQty,
-      purchasePrice: item.purchasePrice,
-      stock: item.stock,
-      lowStockThreshold: item.lowStockThreshold || '',
-      note: item.note || '',
-      purchaseDate: item.purchaseDate || '',
-    })
+    setForm({ name: item.name, category: item.category || '', unitType: item.unitType, purchaseQty: item.purchaseQty, purchasePrice: item.purchasePrice, stock: item.stock, lowStockThreshold: item.lowStockThreshold || '', note: item.note || '', purchaseDate: item.purchaseDate || '' })
     setShowForm(true)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name.trim() || !form.purchaseQty || !form.purchasePrice) return
-    if (editItem) {
-      ingredientDb.update(currentShop.id, editItem.id, {
-        ...form,
-        purchaseQty: Number(form.purchaseQty),
-        purchasePrice: Number(form.purchasePrice),
-        stock: Number(form.stock),
-        lowStockThreshold: Number(form.lowStockThreshold || 0),
-      })
-    } else {
-      ingredientDb.add(currentShop.id, {
-        ...form,
-        purchaseQty: Number(form.purchaseQty),
-        purchasePrice: Number(form.purchasePrice),
-        stock: form.stock !== '' ? Number(form.stock) : Number(form.purchaseQty),
-        lowStockThreshold: Number(form.lowStockThreshold || 0),
-      })
-    }
-    load()
-    setShowForm(false)
+    setSaving(true)
+    try {
+      const data = { ...form, purchaseQty: Number(form.purchaseQty), purchasePrice: Number(form.purchasePrice), stock: form.stock !== '' ? Number(form.stock) : Number(form.purchaseQty), lowStockThreshold: Number(form.lowStockThreshold || 0) }
+      if (editItem) {
+        await ingredientDb.update(currentShop.id, editItem.id, { ...data, _purchaseQty: data.purchaseQty, _purchasePrice: data.purchasePrice })
+      } else {
+        await ingredientDb.add(currentShop.id, data)
+      }
+      await load()
+      setShowForm(false)
+    } catch(e) { console.error(e) }
+    finally { setSaving(false) }
   }
 
-  function handleDelete(id) {
-    ingredientDb.delete(currentShop.id, id)
-    load()
+  async function handleDelete(id) {
+    try { await ingredientDb.delete(currentShop.id, id); await load() }
+    catch(e) { console.error(e) }
     setDeleteConfirm(null)
   }
 
   const costPerUnit = form.purchaseQty && form.purchasePrice
-    ? (Number(form.purchasePrice) / Number(form.purchaseQty)).toFixed(4)
-    : null
+    ? (Number(form.purchasePrice) / Number(form.purchaseQty)).toFixed(4) : null
+
+  if (loading) return <div className="page" style={{ textAlign: 'center', paddingTop: 60, color: '#9ca3af' }}>กำลังโหลด...</div>
 
   return (
     <div className="page">
       <div className="page-header">
         <h1>วัตถุดิบ</h1>
-        <button className="btn btn-primary" onClick={openAdd} style={{ minWidth: 48 }}>
-          <Plus size={20} />
-        </button>
+        <button className="btn btn-primary" onClick={openAdd}><Plus size={20} /></button>
       </div>
 
-      {/* Search */}
       <div style={{ position: 'relative', marginBottom: 16 }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-        <input
-          className="form-control"
-          style={{ paddingLeft: 42 }}
-          placeholder="ค้นหาวัตถุดิบ..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <input className="form-control" style={{ paddingLeft: 42 }} placeholder="ค้นหาวัตถุดิบ..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* List */}
       {filtered.length === 0 ? (
         <div className="empty-state">
           <Package size={48} />
@@ -132,14 +102,8 @@ export default function Ingredients() {
                     {isLow && <span className="badge badge-danger"><AlertTriangle size={10} /> ใกล้หมด</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    <span className="text-sm text-muted">
-                      ต้นทุน: <strong className="text-primary">{fmt(item.costPerUnit, 4)} บาท/{item.unitType === 'gram' ? 'ก.' : 'ชิ้น'}</strong>
-                    </span>
-                    <span className="text-sm text-muted">
-                      สต็อก: <strong style={{ color: isLow ? '#ef4444' : '#1f2937' }}>
-                        {fmt(item.stock, 0)} {item.unitType === 'gram' ? 'ก.' : 'ชิ้น'}
-                      </strong>
-                    </span>
+                    <span className="text-sm text-muted">ต้นทุน: <strong className="text-primary">{fmt(item.costPerUnit, 4)} ฿/{item.unitType === 'gram' ? 'ก.' : 'ชิ้น'}</strong></span>
+                    <span className="text-sm text-muted">สต็อก: <strong style={{ color: isLow ? '#ef4444' : '#1f2937' }}>{fmt(item.stock, 0)} {item.unitType === 'gram' ? 'ก.' : 'ชิ้น'}</strong></span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -152,7 +116,6 @@ export default function Ingredients() {
         </div>
       )}
 
-      {/* Form Modal */}
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -165,7 +128,6 @@ export default function Ingredients() {
                 <label className="form-label">ชื่อวัตถุดิบ *</label>
                 <input className="form-control" placeholder="เช่น ชีสมอสซาเรลล่า" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
               </div>
-
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">หมวดหมู่</label>
@@ -176,31 +138,27 @@ export default function Ingredients() {
                 <div className="form-group">
                   <label className="form-label">หน่วย *</label>
                   <select className="form-control" value={form.unitType} onChange={e => setForm(f => ({ ...f, unitType: e.target.value }))}>
-                    <option value="gram">กรัม (gram)</option>
-                    <option value="piece">ชิ้น (piece)</option>
+                    <option value="gram">กรัม</option>
+                    <option value="piece">ชิ้น</option>
                     <option value="fixed_cost">ต้นทุนคงที่/ถาด</option>
                   </select>
                 </div>
               </div>
-
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">จำนวนที่ซื้อ *</label>
-                  <input className="form-control" type="number" inputMode="decimal" placeholder={form.unitType === 'gram' ? 'กรัม' : 'ชิ้น'} value={form.purchaseQty} onChange={e => setForm(f => ({ ...f, purchaseQty: e.target.value }))} />
+                  <input className="form-control" type="number" inputMode="decimal" value={form.purchaseQty} onChange={e => setForm(f => ({ ...f, purchaseQty: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">ราคาที่ซื้อ *</label>
                   <input className="form-control" type="number" inputMode="decimal" placeholder="บาท" value={form.purchasePrice} onChange={e => setForm(f => ({ ...f, purchasePrice: e.target.value }))} />
                 </div>
               </div>
-
-              {/* Auto cost display */}
               {costPerUnit && (
                 <div className="alert alert-success" style={{ borderRadius: 10, marginBottom: 16 }}>
-                  <strong>ต้นทุนต่อหน่วย: {costPerUnit} บาท/{form.unitType === 'gram' ? 'กรัม' : 'ชิ้น'}</strong>
+                  <strong>ต้นทุนต่อหน่วย: {costPerUnit} ฿/{form.unitType === 'gram' ? 'กรัม' : 'ชิ้น'}</strong>
                 </div>
               )}
-
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">สต็อกปัจจุบัน</label>
@@ -211,12 +169,10 @@ export default function Ingredients() {
                   <input className="form-control" type="number" inputMode="decimal" placeholder="0 = ไม่แจ้ง" value={form.lowStockThreshold} onChange={e => setForm(f => ({ ...f, lowStockThreshold: e.target.value }))} />
                 </div>
               </div>
-
               <div className="form-group">
                 <label className="form-label">วันที่ซื้อ</label>
                 <input className="form-control" type="date" value={form.purchaseDate} onChange={e => setForm(f => ({ ...f, purchaseDate: e.target.value }))} />
               </div>
-
               <div className="form-group">
                 <label className="form-label">หมายเหตุ</label>
                 <input className="form-control" placeholder="ไม่บังคับ" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
@@ -224,16 +180,15 @@ export default function Ingredients() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary flex-1" onClick={() => setShowForm(false)}>ยกเลิก</button>
-              <button className="btn btn-primary flex-1" onClick={handleSave}>บันทึก</button>
+              <button className="btn btn-primary flex-1" onClick={handleSave} disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete confirm */}
       {deleteConfirm && (
         <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ borderRadius: 20 }}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-body" style={{ textAlign: 'center', padding: 32 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🗑️</div>
               <h2>ลบวัตถุดิบ?</h2>
