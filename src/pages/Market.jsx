@@ -194,19 +194,19 @@ export default function Market() {
                   </button>
                 </div>
 
-                {/* fields: เลข + แตะสลับหน่วย */}
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                {/* fields: เลข + แตะสลับหน่วย — พอดี 1 บรรทัด */}
+                <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
                   <NumUnit label="ปริมาณ" placeholder="500"
                     value={it.qtyNum} onValue={v => patch(it.id, { qtyNum: v })}
                     unit={it.qtyUnit} onUnit={() => patch(it.id, { qtyUnit: nextUnit(QTY_UNITS, it.qtyUnit) }, true)}
                     onFocus={() => editingRef.current = it.id} onBlur={() => editingRef.current = null} />
-                  <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 4, width: 92 }}>
-                    <span style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 600 }}>ราคา</span>
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 600 }}>ราคา</span>
                     <div style={{ display: 'flex', alignItems: 'center', border: '2px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
                       <input type="number" inputMode="decimal" placeholder="120" value={it.price || ''} onChange={e => patch(it.id, { price: e.target.value })}
                         onFocus={() => editingRef.current = it.id} onBlur={() => editingRef.current = null}
-                        style={{ width: '100%', padding: '10px 4px', border: 'none', fontFamily: 'inherit', fontSize: '0.95rem', fontWeight: 700, textAlign: 'center', minWidth: 0, outline: 'none' }} />
-                      <span style={{ padding: '0 8px', color: '#9ca3af', fontWeight: 700, fontSize: '0.85rem' }}>฿</span>
+                        style={{ width: '100%', padding: '8px 2px', border: 'none', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700, textAlign: 'center', minWidth: 0, outline: 'none' }} />
+                      <span style={{ padding: '0 6px', color: '#9ca3af', fontWeight: 700, fontSize: '0.8rem' }}>฿</span>
                     </div>
                   </div>
                   <NumUnit label="อายุ" placeholder="7"
@@ -252,16 +252,16 @@ export default function Market() {
 
 function NumUnit({ label, placeholder, value, onValue, unit, onUnit, onFocus, onBlur }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
-      <span style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 600 }}>{label}</span>
+    <div style={{ flex: 1.3, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+      <span style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 600 }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'stretch', border: '2px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
         <input
           type="number" inputMode="decimal" placeholder={placeholder} value={value}
           onChange={e => onValue(e.target.value)} onFocus={onFocus} onBlur={onBlur}
-          style={{ flex: 1, padding: '10px 4px', border: 'none', fontFamily: 'inherit', fontSize: '0.95rem', fontWeight: 700, textAlign: 'center', minWidth: 0, outline: 'none' }}
+          style={{ flex: 1, width: '100%', padding: '8px 2px', border: 'none', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700, textAlign: 'center', minWidth: 0, outline: 'none' }}
         />
         <button onClick={onUnit}
-          style={{ flexShrink: 0, minWidth: 52, border: 'none', borderLeft: '2px solid #e5e7eb', background: '#f0fdf4', color: '#16a34a', fontFamily: 'inherit', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', padding: '0 6px' }}>
+          style={{ flexShrink: 0, minWidth: 40, border: 'none', borderLeft: '2px solid #e5e7eb', background: '#f0fdf4', color: '#16a34a', fontFamily: 'inherit', fontWeight: 800, fontSize: '0.82rem', cursor: 'pointer', padding: '0 4px' }}>
           {unit}
         </button>
       </div>
