@@ -38,9 +38,9 @@ export default function MainApp() {
         <div style={{ display: 'flex', gap: 8 }}>
           <a
             href="/market"
-            style={{ background: '#16a34a', border: 'none', borderRadius: 8, padding: '6px 12px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}
+            style={{ background: '#16a34a', border: 'none', borderRadius: 8, padding: '6px 10px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', textDecoration: 'none' }}
           >
-            <ShoppingBasket size={18} /> ซื้อของ
+            <ShoppingBasket size={18} />
           </a>
           <button
             onClick={() => setShowSettings(true)}
