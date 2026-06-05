@@ -81,13 +81,21 @@ create table if not exists market_items (
   name text not null,
   bought boolean default false,
   qty text default '',
+  qty_num numeric,
+  qty_unit text default 'g',
   price numeric default 0,
   shelf_days integer,
+  shelf_num numeric,
+  shelf_unit text default 'วัน',
   is_custom boolean default false,
   sort integer default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+alter table market_items add column if not exists qty_num numeric;
+alter table market_items add column if not exists qty_unit text default 'g';
+alter table market_items add column if not exists shelf_num numeric;
+alter table market_items add column if not exists shelf_unit text default 'วัน';
 
 -- ── Row Level Security ─────────────────────────────────────────────────────
 alter table shops enable row level security;

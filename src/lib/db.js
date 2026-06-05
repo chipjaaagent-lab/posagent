@@ -34,9 +34,11 @@ export const marketDb = {
   async update(id, fields) {
     const updates = { updated_at: new Date().toISOString() }
     if (fields.bought !== undefined) updates.bought = fields.bought
-    if (fields.qty !== undefined) updates.qty = fields.qty
+    if (fields.qtyNum !== undefined) updates.qty_num = fields.qtyNum === '' ? null : Number(fields.qtyNum)
+    if (fields.qtyUnit !== undefined) updates.qty_unit = fields.qtyUnit
     if (fields.price !== undefined) updates.price = Number(fields.price) || 0
-    if (fields.shelfDays !== undefined) updates.shelf_days = fields.shelfDays === '' ? null : Number(fields.shelfDays)
+    if (fields.shelfNum !== undefined) updates.shelf_num = fields.shelfNum === '' ? null : Number(fields.shelfNum)
+    if (fields.shelfUnit !== undefined) updates.shelf_unit = fields.shelfUnit
     const { error } = await supabase.from('market_items').update(updates).eq('id', id)
     if (error) throw error
   },
@@ -48,7 +50,7 @@ export const marketDb = {
 
   async resetBought(shopKey) {
     const { error } = await supabase.from('market_items')
-      .update({ bought: false, qty: '', price: 0, shelf_days: null })
+      .update({ bought: false, qty_num: null, price: 0, shelf_num: null })
       .eq('shop_key', shopKey)
     if (error) throw error
   }
@@ -60,9 +62,11 @@ function mapMarket(r) {
     shopKey: r.shop_key,
     name: r.name,
     bought: r.bought,
-    qty: r.qty || '',
+    qtyNum: r.qty_num ?? '',
+    qtyUnit: r.qty_unit || 'g',
     price: r.price || 0,
-    shelfDays: r.shelf_days,
+    shelfNum: r.shelf_num ?? '',
+    shelfUnit: r.shelf_unit || 'วัน',
     isCustom: r.is_custom,
     sort: r.sort,
   }
