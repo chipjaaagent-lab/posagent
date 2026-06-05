@@ -53,6 +53,18 @@ export const marketDb = {
       .update({ bought: false, qty_num: null, price: 0, shelf_num: null })
       .eq('shop_key', shopKey)
     if (error) throw error
+  },
+
+  // subscribe realtime — เรียก onChange เมื่อมีการเปลี่ยนแปลงจากเครื่องอื่น
+  subscribe(shopKey, onChange) {
+    const channel = supabase
+      .channel(`market_${shopKey}_${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'market_items', filter: `shop_key=eq.${shopKey}` },
+        payload => onChange(payload)
+      )
+      .subscribe()
+    return () => supabase.removeChannel(channel)
   }
 }
 

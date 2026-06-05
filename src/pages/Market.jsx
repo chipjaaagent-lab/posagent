@@ -21,6 +21,15 @@ function nextUnit(list, cur) {
   const i = list.indexOf(cur)
   return list[(i + 1) % list.length]
 }
+function mapRow(r) {
+  return {
+    id: r.id, shopKey: r.shop_key, name: r.name, bought: r.bought,
+    qtyNum: r.qty_num ?? '', qtyUnit: r.qty_unit || 'g',
+    price: r.price || 0,
+    shelfNum: r.shelf_num ?? '', shelfUnit: r.shelf_unit || 'วัน',
+    isCustom: r.is_custom, sort: r.sort,
+  }
+}
 
 export default function Market() {
   const [shopKey, setShopKey] = useState('pizza')
@@ -29,7 +38,9 @@ export default function Market() {
   const [newName, setNewName] = useState('')
   const [resetConfirm, setResetConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [synced, setSynced] = useState(false)
   const saveTimers = useRef({})
+  const editingRef = useRef(null) // id ของแถวที่กำลังพิมพ์อยู่ (กันโดนทับ)
 
   const shop = SHOPS.find(s => s.key === shopKey)
 
@@ -43,6 +54,29 @@ export default function Market() {
   }
 
   useEffect(() => { load(shopKey) }, [shopKey])
+
+  // Realtime sync ระหว่างเครื่อง
+  useEffect(() => {
+    const unsub = marketDb.subscribe(shopKey, payload => {
+      setSynced(true); setTimeout(() => setSynced(false), 1200)
+      const { eventType, new: row, old } = payload
+      if (eventType === 'INSERT') {
+        const item = mapRow(row)
+        setItems(prev => prev.some(p => p.id === item.id) ? prev : [...prev, item])
+      } else if (eventType === 'DELETE') {
+        setItems(prev => prev.filter(p => p.id !== old.id))
+      } else if (eventType === 'UPDATE') {
+        const item = mapRow(row)
+        setItems(prev => prev.map(p => {
+          if (p.id !== item.id) return p
+          // ถ้ากำลังพิมพ์แถวนี้อยู่ อย่าทับ
+          if (editingRef.current === item.id) return p
+          return item
+        }))
+      }
+    })
+    return unsub
+  }, [shopKey])
 
   // อัปเดต state ทันที + เซฟแบบ debounce
   function patch(id, fields, immediate = false) {
@@ -103,10 +137,11 @@ export default function Market() {
       <div style={{ background: '#16a34a', color: 'white', padding: 'max(14px, env(safe-area-inset-top)) 16px 12px', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <ShoppingBasket size={24} />
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>รายการซื้อของ</div>
             <div style={{ fontSize: '0.78rem', opacity: 0.85 }}>ติ๊กของที่ซื้อ · ใส่ปริมาณ ราคา อายุ</div>
           </div>
+          {synced && <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.25)', padding: '4px 10px', borderRadius: 999, fontWeight: 700 }}>🔄 ซิงค์แล้ว</span>}
         </div>
       </div>
 
@@ -162,18 +197,21 @@ export default function Market() {
                 <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                   <NumUnit label="ปริมาณ" placeholder="500"
                     value={it.qtyNum} onValue={v => patch(it.id, { qtyNum: v })}
-                    unit={it.qtyUnit} onUnit={() => patch(it.id, { qtyUnit: nextUnit(QTY_UNITS, it.qtyUnit) }, true)} />
+                    unit={it.qtyUnit} onUnit={() => patch(it.id, { qtyUnit: nextUnit(QTY_UNITS, it.qtyUnit) }, true)}
+                    onFocus={() => editingRef.current = it.id} onBlur={() => editingRef.current = null} />
                   <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 4, width: 92 }}>
                     <span style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 600 }}>ราคา</span>
                     <div style={{ display: 'flex', alignItems: 'center', border: '2px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
                       <input type="number" inputMode="decimal" placeholder="120" value={it.price || ''} onChange={e => patch(it.id, { price: e.target.value })}
+                        onFocus={() => editingRef.current = it.id} onBlur={() => editingRef.current = null}
                         style={{ width: '100%', padding: '10px 4px', border: 'none', fontFamily: 'inherit', fontSize: '0.95rem', fontWeight: 700, textAlign: 'center', minWidth: 0, outline: 'none' }} />
                       <span style={{ padding: '0 8px', color: '#9ca3af', fontWeight: 700, fontSize: '0.85rem' }}>฿</span>
                     </div>
                   </div>
                   <NumUnit label="อายุ" placeholder="7"
                     value={it.shelfNum} onValue={v => patch(it.id, { shelfNum: v })}
-                    unit={it.shelfUnit} onUnit={() => patch(it.id, { shelfUnit: nextUnit(SHELF_UNITS, it.shelfUnit) }, true)} />
+                    unit={it.shelfUnit} onUnit={() => patch(it.id, { shelfUnit: nextUnit(SHELF_UNITS, it.shelfUnit) }, true)}
+                    onFocus={() => editingRef.current = it.id} onBlur={() => editingRef.current = null} />
                 </div>
               </div>
             ))}
@@ -211,14 +249,14 @@ export default function Market() {
   )
 }
 
-function NumUnit({ label, placeholder, value, onValue, unit, onUnit }) {
+function NumUnit({ label, placeholder, value, onValue, unit, onUnit, onFocus, onBlur }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
       <span style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 600 }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'stretch', border: '2px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
         <input
           type="number" inputMode="decimal" placeholder={placeholder} value={value}
-          onChange={e => onValue(e.target.value)}
+          onChange={e => onValue(e.target.value)} onFocus={onFocus} onBlur={onBlur}
           style={{ flex: 1, padding: '10px 4px', border: 'none', fontFamily: 'inherit', fontSize: '0.95rem', fontWeight: 700, textAlign: 'center', minWidth: 0, outline: 'none' }}
         />
         <button onClick={onUnit}
