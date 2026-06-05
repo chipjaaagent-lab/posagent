@@ -6,7 +6,7 @@ import Menus from './Menus'
 import NewOrder from './NewOrder'
 import SalesHistory from './SalesHistory'
 import Settings from './Settings'
-import { LayoutDashboard, Package, UtensilsCrossed, ShoppingCart, History, LogOut, Settings as SettingsIcon } from 'lucide-react'
+import { LayoutDashboard, Package, UtensilsCrossed, ShoppingCart, History, LogOut, Settings as SettingsIcon, ShoppingBasket } from 'lucide-react'
 
 const TABS = [
   { id: 'dashboard', label: 'หน้าหลัก', icon: LayoutDashboard },
@@ -36,6 +36,12 @@ export default function MainApp() {
           <span style={{ fontWeight: 700, fontSize: '1rem' }}>{currentShop.name}</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <a
+            href="/market"
+            style={{ background: '#16a34a', border: 'none', borderRadius: 8, padding: '6px 12px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}
+          >
+            <ShoppingBasket size={18} /> ซื้อของ
+          </a>
           <button
             onClick={() => setShowSettings(true)}
             style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, padding: '6px 10px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' }}

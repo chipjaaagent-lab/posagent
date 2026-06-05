@@ -142,6 +142,7 @@ export default function Market() {
             <div style={{ fontSize: '0.78rem', opacity: 0.85 }}>ติ๊กของที่ซื้อ · ใส่ปริมาณ ราคา อายุ</div>
           </div>
           {synced && <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.25)', padding: '4px 10px', borderRadius: 999, fontWeight: 700 }}>🔄 ซิงค์แล้ว</span>}
+          <a href="/" style={{ fontSize: '0.78rem', background: 'rgba(255,255,255,0.2)', padding: '6px 12px', borderRadius: 8, fontWeight: 700, color: 'white', textDecoration: 'none', whiteSpace: 'nowrap' }}>← แอปหลัก</a>
         </div>
       </div>
 
