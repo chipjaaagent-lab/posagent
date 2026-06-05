@@ -74,12 +74,28 @@ create table if not exists orders (
   created_at timestamptz default now()
 );
 
+-- ── Market / Shopping list (ฟีเจอร์ซื้อของที่ห้าง) ──────────────────────────
+create table if not exists market_items (
+  id uuid primary key default gen_random_uuid(),
+  shop_key text not null,
+  name text not null,
+  bought boolean default false,
+  qty text default '',
+  price numeric default 0,
+  shelf_days integer,
+  is_custom boolean default false,
+  sort integer default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- ── Row Level Security ─────────────────────────────────────────────────────
 alter table shops enable row level security;
 alter table channels enable row level security;
 alter table ingredients enable row level security;
 alter table menus enable row level security;
 alter table orders enable row level security;
+alter table market_items enable row level security;
 
 -- อนุญาตเฉพาะ user ที่ login แล้ว (whitelist จัดการที่ frontend)
 drop policy if exists "authenticated_all" on shops;
@@ -87,8 +103,10 @@ drop policy if exists "authenticated_all" on channels;
 drop policy if exists "authenticated_all" on ingredients;
 drop policy if exists "authenticated_all" on menus;
 drop policy if exists "authenticated_all" on orders;
+drop policy if exists "authenticated_all" on market_items;
 create policy "authenticated_all" on shops for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated_all" on channels for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated_all" on ingredients for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated_all" on menus for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated_all" on orders for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "authenticated_all" on market_items for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

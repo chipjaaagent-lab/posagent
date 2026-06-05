@@ -3,6 +3,71 @@
 
 import { supabase } from './supabase'
 
+// ── Market / Shopping list ──────────────────────────────────────────────────
+// shopKey: 'pizza' | 'mama' (แยกอิสระจากตาราง shops)
+
+export const marketDb = {
+  async getAll(shopKey) {
+    const { data, error } = await supabase.from('market_items').select('*')
+      .eq('shop_key', shopKey).order('sort').order('created_at')
+    if (error) throw error
+    return (data || []).map(mapMarket)
+  },
+
+  async seedIfEmpty(shopKey, names) {
+    const existing = await marketDb.getAll(shopKey)
+    if (existing.length > 0) return existing
+    const inserts = names.map((name, i) => ({ shop_key: shopKey, name, sort: i, is_custom: false }))
+    const { data, error } = await supabase.from('market_items').insert(inserts).select()
+    if (error) throw error
+    return (data || []).map(mapMarket)
+  },
+
+  async addCustom(shopKey, name, sort) {
+    const { data, error } = await supabase.from('market_items')
+      .insert({ shop_key: shopKey, name, is_custom: true, sort: sort ?? 999 })
+      .select().single()
+    if (error) throw error
+    return mapMarket(data)
+  },
+
+  async update(id, fields) {
+    const updates = { updated_at: new Date().toISOString() }
+    if (fields.bought !== undefined) updates.bought = fields.bought
+    if (fields.qty !== undefined) updates.qty = fields.qty
+    if (fields.price !== undefined) updates.price = Number(fields.price) || 0
+    if (fields.shelfDays !== undefined) updates.shelf_days = fields.shelfDays === '' ? null : Number(fields.shelfDays)
+    const { error } = await supabase.from('market_items').update(updates).eq('id', id)
+    if (error) throw error
+  },
+
+  async remove(id) {
+    const { error } = await supabase.from('market_items').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  async resetBought(shopKey) {
+    const { error } = await supabase.from('market_items')
+      .update({ bought: false, qty: '', price: 0, shelf_days: null })
+      .eq('shop_key', shopKey)
+    if (error) throw error
+  }
+}
+
+function mapMarket(r) {
+  return {
+    id: r.id,
+    shopKey: r.shop_key,
+    name: r.name,
+    bought: r.bought,
+    qty: r.qty || '',
+    price: r.price || 0,
+    shelfDays: r.shelf_days,
+    isCustom: r.is_custom,
+    sort: r.sort,
+  }
+}
+
 // ── Shops ──────────────────────────────────────────────────────────────────
 
 export const shopDb = {
