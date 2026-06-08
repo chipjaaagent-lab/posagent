@@ -87,10 +87,14 @@ export default function NewOrder() {
 
   async function handleSave() {
     if (cart.length === 0 || !channel) return
-    const orderNoNum = orderNo.trim() ? Number(orderNo.trim()) : null
+    if (!orderNo.trim()) {
+      alert('กรุณาใส่เลขออเดอร์')
+      return
+    }
+    const orderNoNum = Number(orderNo.trim())
     setSaving(true)
     try {
-      if (orderNoNum != null && await orderDb.existsOrderNoToday(currentShop.id, orderNoNum)) {
+      if (await orderDb.existsOrderNoToday(currentShop.id, orderNoNum)) {
         alert(`เลขออเดอร์ ${orderNoNum} ถูกใช้ไปแล้วในวันนี้ กรุณาใช้เลขอื่น`)
         setSaving(false)
         return
@@ -156,8 +160,8 @@ export default function NewOrder() {
       </div>
 
       <div className="form-group" style={{ marginBottom: 16 }}>
-        <label className="form-label">เลขออเดอร์</label>
-        <input className="form-control" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="เช่น 101 (ไม่บังคับ)" value={orderNo} onChange={e => setOrderNo(e.target.value.replace(/[^0-9]/g, ''))} />
+        <label className="form-label">เลขออเดอร์ *</label>
+        <input className="form-control" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="เช่น 101" value={orderNo} onChange={e => setOrderNo(e.target.value.replace(/[^0-9]/g, ''))} />
       </div>
 
       {menus.length === 0 ? (
@@ -255,7 +259,7 @@ export default function NewOrder() {
                 </div>
               </div>
 
-              <button className="btn btn-success btn-lg btn-full" onClick={handleSave} disabled={saving || cart.length === 0}>
+              <button className="btn btn-success btn-lg btn-full" onClick={handleSave} disabled={saving || cart.length === 0 || !orderNo.trim()}>
                 <CheckCircle size={22} /> {saving ? 'กำลังบันทึก...' : 'บันทึกออเดอร์'}
               </button>
             </>
