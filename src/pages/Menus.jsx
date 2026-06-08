@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useShop } from '../lib/shopContext'
 import { menuDb, ingredientDb } from '../lib/db'
-import { Plus, Pencil, Trash2, UtensilsCrossed, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { Plus, Pencil, Copy, Trash2, UtensilsCrossed, ChevronDown, ChevronUp, X } from 'lucide-react'
 
 function fmt(n) { return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 const SIZES = ['', '5 นิ้ว (S)', '7 นิ้ว (M)', '9 นิ้ว (L)']
@@ -37,6 +37,11 @@ export default function Menus() {
   function openEdit(menu) {
     setEditMenu(menu)
     setForm({ name: menu.name, menuType: menu.menuType || 'พิซซ่า', size: menu.size || '', sellingPrice: menu.sellingPrice, note: menu.note || '', recipe: (menu.latestRecipe || []).map(r => ({ ...r })) })
+    setAddIngId(''); setAddQty(''); setShowForm(true)
+  }
+  function openDuplicate(menu) {
+    setEditMenu(null)
+    setForm({ name: `${menu.name} (สำเนา)`, menuType: menu.menuType || 'พิซซ่า', size: menu.size || '', sellingPrice: menu.sellingPrice, note: menu.note || '', recipe: (menu.latestRecipe || []).map(r => ({ ...r })) })
     setAddIngId(''); setAddQty(''); setShowForm(true)
   }
 
@@ -125,6 +130,7 @@ export default function Menus() {
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-icon btn-secondary" onClick={() => openEdit(menu)}><Pencil size={16} /></button>
+                      <button className="btn btn-icon btn-secondary" onClick={() => openDuplicate(menu)}><Copy size={16} /></button>
                       <button className="btn btn-icon btn-danger" onClick={() => setDeleteConfirm(menu)}><Trash2 size={16} /></button>
                     </div>
                   </div>

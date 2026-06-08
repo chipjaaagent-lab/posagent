@@ -114,7 +114,7 @@ export const shopDb = {
 
 const DEFAULT_CHANNELS = [
   { name: 'หน้าร้าน', gp_percent: 0, ads_default: 0, is_default: false },
-  { name: 'LINE MAN', gp_percent: 30, ads_default: 20, is_default: true },
+  { name: 'LINE MAN', gp_percent: 32.1, ads_default: 20, is_default: true },
 ]
 
 export const channelDb = {
