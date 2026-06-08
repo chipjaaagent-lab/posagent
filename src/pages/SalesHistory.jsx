@@ -4,7 +4,7 @@ import { orderDb } from '../lib/db'
 import { History, ChevronDown, ChevronUp } from 'lucide-react'
 
 function fmt(n) { return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
-function fmtDate(iso) { return new Date(iso).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) }
+function fmtDate(iso) { return new Date(iso).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) }
 
 export default function SalesHistory() {
   const { currentShop } = useShop()
