@@ -391,8 +391,9 @@ export const orderDb = {
   },
 
   async getByDate(shopId, dateStr) {
-    const start = `${dateStr}T00:00:00.000Z`
-    const end = `${dateStr}T23:59:59.999Z`
+    // ขอบเขตวันตามเวลาไทย UTC+7 (ให้ตรงกับวันที่ที่แสดงผล)
+    const start = new Date(`${dateStr}T00:00:00+07:00`).toISOString()
+    const end = new Date(`${dateStr}T23:59:59.999+07:00`).toISOString()
     const { data, error } = await supabase.from('orders').select('*')
       .eq('shop_id', shopId)
       .gte('created_at', start)
