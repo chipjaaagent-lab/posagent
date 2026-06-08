@@ -335,7 +335,7 @@ export const orderDb = {
     return (data || []).map(mapOrder)
   },
 
-  async add(shopId, { channelName, gpPercent, gpEnabled, adsFee, couponDiscount, items }) {
+  async add(shopId, { channelName, gpPercent, gpEnabled, adsFee, couponDiscount, items, note }) {
     const subtotal = items.reduce((s, it) => s + it.lineRevenue, 0)
     const totalCost = items.reduce((s, it) => s + it.lineCost, 0)
     const gpAmount = gpEnabled ? subtotal * (Number(gpPercent) / 100) : 0
@@ -359,6 +359,7 @@ export const orderDb = {
       net_received: netReceived,
       net_profit: netProfit,
       item_count: itemCount,
+      note: note || '',
     }).select().single()
     if (error) throw error
 
@@ -430,6 +431,7 @@ function mapOrder(r) {
     netReceived: r.net_received,
     netProfit: r.net_profit,
     itemCount: r.item_count,
+    note: r.note || '',
     createdAt: r.created_at,
   }
 }

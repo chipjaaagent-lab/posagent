@@ -23,6 +23,7 @@ export default function NewOrder() {
   const [adsFee, setAdsFee] = useState(0)
   const [couponEnabled, setCouponEnabled] = useState(false)
   const [couponAmount, setCouponAmount] = useState('')
+  const [note, setNote] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
   const [savedOrder, setSavedOrder] = useState(null)
 
@@ -96,7 +97,7 @@ export default function NewOrder() {
         const unitCost = snapshot.reduce((s, x) => s + x.subtotal, 0)
         return { menuId: menu.id, menuName: `${menu.name}${menu.size ? ` (${menu.size})` : ''}`, sellingPrice: menu.sellingPrice, qty: c.qty, ingredients: snapshot, unitCost, lineCost: unitCost * c.qty, lineRevenue: menu.sellingPrice * c.qty }
       })
-      const order = await orderDb.add(currentShop.id, { channelName: channel.name, gpPercent: channel.gpPercent, gpEnabled, adsFee: calc.ads, couponDiscount: calc.coupon, items })
+      const order = await orderDb.add(currentShop.id, { channelName: channel.name, gpPercent: channel.gpPercent, gpEnabled, adsFee: calc.ads, couponDiscount: calc.coupon, items, note: note.trim() })
       setSavedOrder(order); setShowSuccess(true)
       await loadData()
     } catch(e) { console.error(e) }
@@ -104,7 +105,7 @@ export default function NewOrder() {
   }
 
   function resetOrder() {
-    setCart([]); setCouponEnabled(false); setCouponAmount(''); setAdsEnabled(false)
+    setCart([]); setCouponEnabled(false); setCouponAmount(''); setAdsEnabled(false); setNote('')
     if (channel) setAdsFee(channel.adsDefault)
     setShowSuccess(false); setSavedOrder(null)
   }
@@ -116,7 +117,8 @@ export default function NewOrder() {
       <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 40 }}>
         <CheckCircle size={72} color="#22c55e" />
         <h2 style={{ marginTop: 16, marginBottom: 4 }}>บันทึกแล้ว!</h2>
-        <p className="text-muted text-sm" style={{ marginBottom: 20 }}>{savedOrder.channelName} · {savedOrder.itemCount} รายการ</p>
+        <p className="text-muted text-sm" style={{ marginBottom: savedOrder.note ? 6 : 20 }}>{savedOrder.channelName} · {savedOrder.itemCount} รายการ</p>
+        {savedOrder.note && <p className="text-sm" style={{ marginBottom: 20, color: '#374151' }}>📝 {savedOrder.note}</p>}
         <div className="card" style={{ width: '100%', maxWidth: 380 }}>
           <div className="card-body">
             {savedOrder.items.map((it, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}><span className="text-sm">{it.menuName} × {it.qty}</span><span className="text-sm">{fmt(it.lineRevenue)} ฿</span></div>)}
@@ -218,6 +220,11 @@ export default function NewOrder() {
                     extra={couponEnabled && <input type="number" inputMode="decimal" placeholder="จำนวนเงินส่วนลด" value={couponAmount} onChange={e => setCouponAmount(e.target.value)} style={{ width: 160, padding: '8px 12px', border: '2px solid #e5e7eb', borderRadius: 8, fontFamily: 'inherit', fontWeight: 700, marginTop: 8 }} autoFocus />}
                   />
                 </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label className="form-label">หมายเหตุ</label>
+                <input className="form-control" placeholder="เช่น ชื่อลูกค้า / ที่อยู่ / โน้ตพิเศษ (ไม่บังคับ)" value={note} onChange={e => setNote(e.target.value)} />
               </div>
 
               <div className="card" style={{ marginBottom: 20, border: '2px solid #FF6B35' }}>

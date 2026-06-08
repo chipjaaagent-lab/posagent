@@ -81,6 +81,7 @@ export default function SalesHistory() {
                   <div className="text-sm text-muted mt-2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {order.items.map(it => `${it.menuName}×${it.qty}`).join(', ')}
                   </div>
+                  {order.note && <div className="text-sm mt-1" style={{ color: '#374151' }}>📝 {order.note}</div>}
                 </div>
                 {expanded && (
                   <div style={{ borderTop: '1px solid #f3f4f6', background: '#fafafa', padding: '12px 16px' }}>

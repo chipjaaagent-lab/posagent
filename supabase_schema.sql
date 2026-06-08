@@ -71,8 +71,10 @@ create table if not exists orders (
   net_received numeric default 0,
   net_profit numeric default 0,
   item_count integer default 0,
+  note text default '',
   created_at timestamptz default now()
 );
+alter table orders add column if not exists note text default '';
 
 -- ── Market / Shopping list (ฟีเจอร์ซื้อของที่ห้าง) ──────────────────────────
 create table if not exists market_items (
