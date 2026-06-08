@@ -68,6 +68,7 @@ export default function SalesHistory() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {order.orderNo != null && <span className="badge badge-gray">#{order.orderNo}</span>}
                         <span className="badge badge-primary">{order.channelName}</span>
                         <span className="text-sm font-semibold">{order.itemCount} รายการ</span>
                       </div>

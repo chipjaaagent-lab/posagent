@@ -335,7 +335,20 @@ export const orderDb = {
     return (data || []).map(mapOrder)
   },
 
-  async add(shopId, { channelName, gpPercent, gpEnabled, adsFee, couponDiscount, items, note }) {
+  async existsOrderNoToday(shopId, orderNo) {
+    // ใช้เวลาไทย UTC+7 — เช็คซ้ำเฉพาะภายในวันเดียวกัน
+    const thai = new Date(Date.now() + 7 * 60 * 60 * 1000)
+    const dateStr = thai.toISOString().slice(0, 10)
+    const start = new Date(`${dateStr}T00:00:00+07:00`).toISOString()
+    const end = new Date(`${dateStr}T23:59:59+07:00`).toISOString()
+    const { data, error } = await supabase.from('orders').select('id')
+      .eq('shop_id', shopId).eq('order_no', orderNo)
+      .gte('created_at', start).lte('created_at', end)
+    if (error) throw error
+    return (data || []).length > 0
+  },
+
+  async add(shopId, { channelName, gpPercent, gpEnabled, adsFee, couponDiscount, items, note, orderNo }) {
     const subtotal = items.reduce((s, it) => s + it.lineRevenue, 0)
     const totalCost = items.reduce((s, it) => s + it.lineCost, 0)
     const gpAmount = gpEnabled ? subtotal * (Number(gpPercent) / 100) : 0
@@ -360,6 +373,7 @@ export const orderDb = {
       net_profit: netProfit,
       item_count: itemCount,
       note: note || '',
+      order_no: orderNo ?? null,
     }).select().single()
     if (error) throw error
 
@@ -432,6 +446,7 @@ function mapOrder(r) {
     netProfit: r.net_profit,
     itemCount: r.item_count,
     note: r.note || '',
+    orderNo: r.order_no ?? null,
     createdAt: r.created_at,
   }
 }

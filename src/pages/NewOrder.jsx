@@ -24,6 +24,7 @@ export default function NewOrder() {
   const [couponEnabled, setCouponEnabled] = useState(false)
   const [couponAmount, setCouponAmount] = useState('')
   const [note, setNote] = useState('')
+  const [orderNo, setOrderNo] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
   const [savedOrder, setSavedOrder] = useState(null)
 
@@ -86,8 +87,14 @@ export default function NewOrder() {
 
   async function handleSave() {
     if (cart.length === 0 || !channel) return
+    const orderNoNum = orderNo.trim() ? Number(orderNo.trim()) : null
     setSaving(true)
     try {
+      if (orderNoNum != null && await orderDb.existsOrderNoToday(currentShop.id, orderNoNum)) {
+        alert(`เลขออเดอร์ ${orderNoNum} ถูกใช้ไปแล้วในวันนี้ กรุณาใช้เลขอื่น`)
+        setSaving(false)
+        return
+      }
       const items = cart.map(c => {
         const menu = menus.find(m => m.id === c.menuId)
         const snapshot = (menu.latestRecipe || []).map(r => {
@@ -97,7 +104,7 @@ export default function NewOrder() {
         const unitCost = snapshot.reduce((s, x) => s + x.subtotal, 0)
         return { menuId: menu.id, menuName: `${menu.name}${menu.size ? ` (${menu.size})` : ''}`, sellingPrice: menu.sellingPrice, qty: c.qty, ingredients: snapshot, unitCost, lineCost: unitCost * c.qty, lineRevenue: menu.sellingPrice * c.qty }
       })
-      const order = await orderDb.add(currentShop.id, { channelName: channel.name, gpPercent: channel.gpPercent, gpEnabled, adsFee: calc.ads, couponDiscount: calc.coupon, items, note: note.trim() })
+      const order = await orderDb.add(currentShop.id, { channelName: channel.name, gpPercent: channel.gpPercent, gpEnabled, adsFee: calc.ads, couponDiscount: calc.coupon, items, note: note.trim(), orderNo: orderNoNum })
       setSavedOrder(order); setShowSuccess(true)
       await loadData()
     } catch(e) { console.error(e) }
@@ -105,7 +112,7 @@ export default function NewOrder() {
   }
 
   function resetOrder() {
-    setCart([]); setCouponEnabled(false); setCouponAmount(''); setAdsEnabled(false); setNote('')
+    setCart([]); setCouponEnabled(false); setCouponAmount(''); setAdsEnabled(false); setNote(''); setOrderNo('')
     if (channel) setAdsFee(channel.adsDefault)
     setShowSuccess(false); setSavedOrder(null)
   }
@@ -117,7 +124,7 @@ export default function NewOrder() {
       <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 40 }}>
         <CheckCircle size={72} color="#22c55e" />
         <h2 style={{ marginTop: 16, marginBottom: 4 }}>บันทึกแล้ว!</h2>
-        <p className="text-muted text-sm" style={{ marginBottom: savedOrder.note ? 6 : 20 }}>{savedOrder.channelName} · {savedOrder.itemCount} รายการ</p>
+        <p className="text-muted text-sm" style={{ marginBottom: savedOrder.note ? 6 : 20 }}>{savedOrder.orderNo != null ? `#${savedOrder.orderNo} · ` : ''}{savedOrder.channelName} · {savedOrder.itemCount} รายการ</p>
         {savedOrder.note && <p className="text-sm" style={{ marginBottom: 20, color: '#374151' }}>📝 {savedOrder.note}</p>}
         <div className="card" style={{ width: '100%', maxWidth: 380 }}>
           <div className="card-body">
@@ -146,6 +153,11 @@ export default function NewOrder() {
       <div className="page-header">
         <h1>เปิดออเดอร์</h1>
         {cart.length > 0 && <button className="btn btn-secondary" onClick={resetOrder}><Trash2 size={16} /> ล้าง</button>}
+      </div>
+
+      <div className="form-group" style={{ marginBottom: 16 }}>
+        <label className="form-label">เลขออเดอร์</label>
+        <input className="form-control" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="เช่น 101 (ไม่บังคับ)" value={orderNo} onChange={e => setOrderNo(e.target.value.replace(/[^0-9]/g, ''))} />
       </div>
 
       {menus.length === 0 ? (
