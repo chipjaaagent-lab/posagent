@@ -75,6 +75,25 @@ export default function Ingredients() {
     setIsAddMode(true)
   }
 
+  function handleNumpadPress(val) {
+    if (val === 'backspace') {
+      setRestockQty(prev => prev.slice(0, -1))
+    } else if (val === 'clear') {
+      setRestockQty('')
+    } else if (val === '.') {
+      setRestockQty(prev => {
+        if (prev.includes('.')) return prev
+        return prev === '' ? '0.' : prev + '.'
+      })
+    } else {
+      setRestockQty(prev => {
+        if (prev === '0' && val === '0') return prev
+        if (prev === '0' && val !== '0' && val !== '.') return val
+        return prev + val
+      })
+    }
+  }
+
   async function handleSaveRestock() {
     if (!restockItem || restockQty === '') return
     setSaving(true)
@@ -274,23 +293,87 @@ export default function Ingredients() {
                 <label className="form-label" style={{ fontSize: '1.1rem', display: 'block', marginBottom: 8 }}>
                   สต็อกปัจจุบัน: <strong style={{ color: '#2563eb' }}>{fmt(restockItem.stock, 0)} {restockItem.unitType === 'gram' ? 'ก.' : 'ชิ้น'}</strong>
                 </label>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12 }}>
-                  <input 
-                    className="form-control" 
-                    type="number" 
-                    inputMode="decimal"
-                    placeholder={isAddMode ? 'ใส่จำนวนที่ต้องการบวก' : 'ใส่จำนวนที่นับได้จริง'} 
-                    style={{ fontSize: '1.8rem', height: 60, textAlign: 'center', maxWidth: 220 }} 
-                    value={restockQty} 
-                    onChange={e => setRestockQty(e.target.value)} 
-                    autoFocus 
-                  />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12, marginBottom: 20 }}>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input 
+                      className="form-control" 
+                      readOnly
+                      placeholder={isAddMode ? 'ใส่จำนวนที่บวก' : 'ใส่จำนวนจริง'} 
+                      style={{ fontSize: '2rem', height: 60, textAlign: 'center', maxWidth: 220, paddingRight: 40, background: '#fff' }} 
+                      value={restockQty} 
+                    />
+                    {restockQty && (
+                      <button 
+                        type="button"
+                        style={{ 
+                          position: 'absolute', 
+                          right: 12, 
+                          background: 'none', 
+                          border: 'none', 
+                          fontSize: '1.2rem', 
+                          color: '#9ca3af',
+                          cursor: 'pointer',
+                          padding: 4
+                        }}
+                        onClick={() => handleNumpadPress('clear')}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                   <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#4b5563' }}>
                     {restockItem.unitType === 'gram' ? 'กรัม' : 'ชิ้น'}
                   </span>
                 </div>
+
+                {/* Virtual Numpad */}
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(3, 1fr)', 
+                  gap: 10, 
+                  maxWidth: 260, 
+                  margin: '0 auto 20px auto', 
+                  width: '100%' 
+                }}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                    <button 
+                      key={num} 
+                      type="button"
+                      className="btn btn-secondary" 
+                      style={{ fontSize: '1.6rem', padding: '12px 0', borderRadius: 12, fontWeight: 'bold', border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer' }}
+                      onClick={() => handleNumpadPress(num.toString())}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                  <button 
+                    type="button"
+                    className="btn btn-secondary" 
+                    style={{ fontSize: '1.6rem', padding: '12px 0', borderRadius: 12, fontWeight: 'bold', border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer' }}
+                    onClick={() => handleNumpadPress('.')}
+                  >
+                    .
+                  </button>
+                  <button 
+                    type="button"
+                    className="btn btn-secondary" 
+                    style={{ fontSize: '1.6rem', padding: '12px 0', borderRadius: 12, fontWeight: 'bold', border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer' }}
+                    onClick={() => handleNumpadPress('0')}
+                  >
+                    0
+                  </button>
+                  <button 
+                    type="button"
+                    className="btn btn-secondary" 
+                    style={{ fontSize: '1.6rem', padding: '12px 0', borderRadius: 12, fontWeight: 'bold', border: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    onClick={() => handleNumpadPress('backspace')}
+                  >
+                    ⌫
+                  </button>
+                </div>
+
                 {restockQty && (
-                  <div style={{ marginTop: 16, fontSize: '1.1rem', color: '#4b5563' }}>
+                  <div style={{ fontSize: '1.1rem', color: '#4b5563' }}>
                     สต็อกใหม่จะเป็น: <strong style={{ color: '#2563eb', fontSize: '1.3rem' }}>
                       {fmt(isAddMode 
                         ? (Number(restockItem.stock) + Number(restockQty)) 
