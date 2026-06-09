@@ -390,22 +390,32 @@ export const orderDb = {
     return mapOrder(row)
   },
 
-  async update(shopId, id, { orderNo, channelName, gpPercent, gpEnabled, note, createdAt }) {
+  async update(shopId, id, { orderNo, channelName, gpPercent, gpEnabled, adsFee, couponDiscount, note, createdAt }) {
     const updates = {}
     if (orderNo !== undefined) updates.order_no = orderNo
     if (note !== undefined) updates.note = note
     if (createdAt !== undefined) updates.created_at = createdAt
-    // เปลี่ยนช่องทาง → คำนวณ GP / กำไรใหม่จากยอดเดิม
-    if (channelName !== undefined) {
+
+    // ถ้ามีการแก้ช่องทาง / ค่า Ads / คูปอง → คำนวณ GP และกำไรใหม่จากยอดเดิม
+    const affectsTotals = channelName !== undefined || adsFee !== undefined || couponDiscount !== undefined
+    if (affectsTotals) {
       const { data: cur, error: e1 } = await supabase.from('orders')
-        .select('subtotal, total_cost, ads_fee, coupon_discount').eq('id', id).eq('shop_id', shopId).single()
+        .select('subtotal, total_cost, ads_fee, coupon_discount, gp_percent, gp_enabled').eq('id', id).eq('shop_id', shopId).single()
       if (e1) throw e1
-      const gpAmount = gpEnabled ? cur.subtotal * (Number(gpPercent) / 100) : 0
-      const netReceived = cur.subtotal - gpAmount - cur.ads_fee - cur.coupon_discount
-      updates.channel_name = channelName
-      updates.gp_percent = Number(gpPercent)
-      updates.gp_enabled = !!gpEnabled
-      updates.gp_amount = gpAmount
+      const newGpPercent = channelName !== undefined ? Number(gpPercent) : Number(cur.gp_percent)
+      const newGpEnabled = channelName !== undefined ? !!gpEnabled : !!cur.gp_enabled
+      const ads = adsFee !== undefined ? Number(adsFee) || 0 : Number(cur.ads_fee) || 0
+      const coupon = couponDiscount !== undefined ? Number(couponDiscount) || 0 : Number(cur.coupon_discount) || 0
+      const gpAmount = newGpEnabled ? cur.subtotal * (newGpPercent / 100) : 0
+      const netReceived = cur.subtotal - gpAmount - ads - coupon
+      if (channelName !== undefined) {
+        updates.channel_name = channelName
+        updates.gp_percent = newGpPercent
+        updates.gp_enabled = newGpEnabled
+        updates.gp_amount = gpAmount
+      }
+      updates.ads_fee = ads
+      updates.coupon_discount = coupon
       updates.net_received = netReceived
       updates.net_profit = netReceived - cur.total_cost
     }

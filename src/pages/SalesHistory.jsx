@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useShop } from '../lib/shopContext'
-import { orderDb, channelDb } from '../lib/db'
+import { orderDb } from '../lib/db'
 import { History, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 
 function fmt(n) { return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
@@ -16,9 +16,8 @@ export default function SalesHistory() {
   const [filterDate, setFilterDate] = useState(new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10))
   const [expandedId, setExpandedId] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [channels, setChannels] = useState([])
   const [editOrder, setEditOrder] = useState(null)
-  const [editForm, setEditForm] = useState({ orderNo: '', channelName: '', datetime: '', note: '' })
+  const [editForm, setEditForm] = useState({ orderNo: '', datetime: '', note: '', adsEnabled: false, adsFee: '', couponEnabled: false, couponAmount: '' })
   const [saving, setSaving] = useState(false)
 
   async function load() {
@@ -33,15 +32,17 @@ export default function SalesHistory() {
   }
 
   useEffect(() => { load() }, [currentShop.id, filterDate])
-  useEffect(() => { channelDb.getAll(currentShop.id).then(setChannels).catch(console.error) }, [currentShop.id])
 
   function openEdit(order) {
     setEditOrder(order)
     setEditForm({
       orderNo: order.orderNo != null ? String(order.orderNo) : '',
-      channelName: order.channelName,
       datetime: toLocalInput(order.createdAt),
       note: order.note || '',
+      adsEnabled: order.adsFee > 0,
+      adsFee: order.adsFee ? String(order.adsFee) : '',
+      couponEnabled: order.couponDiscount > 0,
+      couponAmount: order.couponDiscount ? String(order.couponDiscount) : '',
     })
   }
 
@@ -49,13 +50,12 @@ export default function SalesHistory() {
     if (!editOrder) return
     setSaving(true)
     try {
-      const ch = channels.find(c => c.name === editForm.channelName)
-      const channelChanged = editForm.channelName !== editOrder.channelName
       await orderDb.update(currentShop.id, editOrder.id, {
         orderNo: editForm.orderNo.trim() ? Number(editForm.orderNo.trim()) : null,
         note: editForm.note.trim(),
         createdAt: fromLocalInput(editForm.datetime),
-        ...(channelChanged && ch ? { channelName: ch.name, gpPercent: ch.gpPercent, gpEnabled: ch.gpPercent > 0 } : {}),
+        adsFee: editForm.adsEnabled ? (Number(editForm.adsFee) || 0) : 0,
+        couponDiscount: editForm.couponEnabled ? (Number(editForm.couponAmount) || 0) : 0,
       })
       setEditOrder(null)
       await load()
@@ -162,12 +162,18 @@ export default function SalesHistory() {
                 <input className="form-control" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="เช่น 101" value={editForm.orderNo} onChange={e => setEditForm(f => ({ ...f, orderNo: e.target.value.replace(/[^0-9]/g, '') }))} />
               </div>
               <div className="form-group">
-                <label className="form-label">ช่องทางขาย</label>
-                <select className="form-control" value={editForm.channelName} onChange={e => setEditForm(f => ({ ...f, channelName: e.target.value }))}>
-                  {channels.some(c => c.name === editForm.channelName) ? null : <option value={editForm.channelName}>{editForm.channelName}</option>}
-                  {channels.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                </select>
-                <div className="text-xs text-muted mt-1">เปลี่ยนช่องทาง ระบบจะคำนวณ GP/กำไรใหม่ให้</div>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={editForm.adsEnabled} onChange={e => setEditForm(f => ({ ...f, adsEnabled: e.target.checked }))} />
+                  ค่า Ads (มาจากโฆษณา)
+                </label>
+                {editForm.adsEnabled && <input className="form-control" type="number" inputMode="decimal" placeholder="จำนวนเงินค่า Ads" value={editForm.adsFee} onChange={e => setEditForm(f => ({ ...f, adsFee: e.target.value }))} />}
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={editForm.couponEnabled} onChange={e => setEditForm(f => ({ ...f, couponEnabled: e.target.checked }))} />
+                  คูปองส่วนลด
+                </label>
+                {editForm.couponEnabled && <input className="form-control" type="number" inputMode="decimal" placeholder="จำนวนเงินส่วนลด" value={editForm.couponAmount} onChange={e => setEditForm(f => ({ ...f, couponAmount: e.target.value }))} />}
               </div>
               <div className="form-group">
                 <label className="form-label">วันที่/เวลา</label>
