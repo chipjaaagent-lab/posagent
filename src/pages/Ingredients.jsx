@@ -298,7 +298,7 @@ export default function Ingredients() {
                     <input 
                       className="form-control" 
                       readOnly
-                      placeholder={isAddMode ? 'ใส่จำนวนที่บวก' : 'ใส่จำนวนจริง'} 
+                      placeholder="จำนวน" 
                       style={{ fontSize: '2rem', height: 60, textAlign: 'center', maxWidth: 220, paddingRight: 40, background: '#fff' }} 
                       value={restockQty} 
                     />
