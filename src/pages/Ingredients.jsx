@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useShop } from '../lib/shopContext'
 import { ingredientDb } from '../lib/db'
-import { Plus, Pencil, Trash2, AlertTriangle, Package, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, AlertTriangle, Package, Search, Layers } from 'lucide-react'
 
 const UNIT_LABELS = { gram: 'กรัม', piece: 'ชิ้น', fixed_cost: 'ต่อถาด (fixed)' }
 const CATEGORIES = ['', 'แป้งและบรรจุภัณฑ์', 'ทอปปิ้ง', 'ซอส', 'ชีส', 'เครื่องดื่ม']
@@ -22,6 +22,9 @@ export default function Ingredients() {
   const [editItem, setEditItem] = useState(null)
   const [form, setForm] = useState(EMPTY)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [restockItem, setRestockItem] = useState(null)
+  const [restockQty, setRestockQty] = useState('')
+  const [isAddMode, setIsAddMode] = useState(true)
 
   async function load() {
     setLoading(true)
@@ -66,6 +69,26 @@ export default function Ingredients() {
     setDeleteConfirm(null)
   }
 
+  function openRestock(item) {
+    setRestockItem(item)
+    setRestockQty('')
+    setIsAddMode(true)
+  }
+
+  async function handleSaveRestock() {
+    if (!restockItem || restockQty === '') return
+    setSaving(true)
+    try {
+      const inputVal = Number(restockQty)
+      const currentStock = Number(restockItem.stock || 0)
+      const newStock = isAddMode ? currentStock + inputVal : inputVal
+      await ingredientDb.update(currentShop.id, restockItem.id, { stock: newStock })
+      await load()
+      setRestockItem(null)
+    } catch(e) { console.error(e) }
+    finally { setSaving(false) }
+  }
+
   const costPerUnit = form.purchaseQty && form.purchasePrice
     ? (Number(form.purchasePrice) / Number(form.purchaseQty)).toFixed(4) : null
 
@@ -95,7 +118,7 @@ export default function Ingredients() {
             const isLow = item.lowStockThreshold > 0 && item.stock <= item.lowStockThreshold
             return (
               <div key={item.id} className="list-item" style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                <div style={{ flex: 1 }} onClick={() => openEdit(item)}>
+                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => openRestock(item)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <span className="font-semibold">{item.name}</span>
                     {item.category && <span className="badge badge-gray">{item.category}</span>}
@@ -107,8 +130,9 @@ export default function Ingredients() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-icon btn-secondary" onClick={() => openEdit(item)}><Pencil size={16} /></button>
-                  <button className="btn btn-icon btn-danger" onClick={() => setDeleteConfirm(item)}><Trash2 size={16} /></button>
+                  <button className="btn btn-icon btn-secondary" onClick={() => openRestock(item)} title="Restock สต็อกด่วน"><Layers size={16} /></button>
+                  <button className="btn btn-icon btn-secondary" onClick={() => openEdit(item)} title="แก้ไขทั้งหมด"><Pencil size={16} /></button>
+                  <button className="btn btn-icon btn-danger" onClick={() => setDeleteConfirm(item)} title="ลบวัตถุดิบ"><Trash2 size={16} /></button>
                 </div>
               </div>
             )
@@ -201,6 +225,92 @@ export default function Ingredients() {
           </div>
         </div>
       )}
+
+      {restockItem && (
+        <div className="modal-overlay" onClick={() => setRestockItem(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Restock: {restockItem.name}</h2>
+              <button className="btn btn-icon btn-secondary" onClick={() => setRestockItem(null)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              
+              <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 10, padding: 4 }}>
+                <button 
+                  className="flex-1 btn" 
+                  style={{ 
+                    background: isAddMode ? '#3b82f6' : 'transparent',
+                    color: isAddMode ? '#fff' : '#4b5563',
+                    border: 'none',
+                    boxShadow: isAddMode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    fontWeight: 'bold',
+                    padding: '12px 0',
+                    borderRadius: 8,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setIsAddMode(true)}
+                >
+                  ➕ บวกเพิ่มจากของเดิม
+                </button>
+                <button 
+                  className="flex-1 btn" 
+                  style={{ 
+                    background: !isAddMode ? '#10b981' : 'transparent',
+                    color: !isAddMode ? '#fff' : '#4b5563',
+                    border: 'none',
+                    boxShadow: !isAddMode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    fontWeight: 'bold',
+                    padding: '12px 0',
+                    borderRadius: 8,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setIsAddMode(false)}
+                >
+                  🔄 นับใหม่แทนที่ของเดิม
+                </button>
+              </div>
+
+              <div className="form-group" style={{ textAlign: 'center' }}>
+                <label className="form-label" style={{ fontSize: '1.1rem', display: 'block', marginBottom: 8 }}>
+                  สต็อกปัจจุบัน: <strong style={{ color: '#2563eb' }}>{fmt(restockItem.stock, 0)} {restockItem.unitType === 'gram' ? 'ก.' : 'ชิ้น'}</strong>
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12 }}>
+                  <input 
+                    className="form-control" 
+                    type="number" 
+                    inputMode="decimal"
+                    placeholder={isAddMode ? 'ใส่จำนวนที่ต้องการบวก' : 'ใส่จำนวนที่นับได้จริง'} 
+                    style={{ fontSize: '1.8rem', height: 60, textAlign: 'center', maxWidth: 220 }} 
+                    value={restockQty} 
+                    onChange={e => setRestockQty(e.target.value)} 
+                    autoFocus 
+                  />
+                  <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#4b5563' }}>
+                    {restockItem.unitType === 'gram' ? 'กรัม' : 'ชิ้น'}
+                  </span>
+                </div>
+                {restockQty && (
+                  <div style={{ marginTop: 16, fontSize: '1.1rem', color: '#4b5563' }}>
+                    สต็อกใหม่จะเป็น: <strong style={{ color: '#2563eb', fontSize: '1.3rem' }}>
+                      {fmt(isAddMode 
+                        ? (Number(restockItem.stock) + Number(restockQty)) 
+                        : Number(restockQty), 0
+                      )}
+                    </strong> {restockItem.unitType === 'gram' ? 'กรัม' : 'ชิ้น'}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary flex-1" style={{ padding: '14px 0', fontSize: '1.1rem' }} onClick={() => setRestockItem(null)}>ยกเลิก</button>
+              <button className="btn btn-primary flex-1" style={{ padding: '14px 0', fontSize: '1.1rem' }} onClick={handleSaveRestock} disabled={saving || !restockQty}>
+                {saving ? 'กำลังบันทึก...' : 'บันทึกสต็อก'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   )
 }
