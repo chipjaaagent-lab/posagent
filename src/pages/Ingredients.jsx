@@ -72,7 +72,7 @@ export default function Ingredients() {
   function openRestock(item) {
     setRestockItem(item)
     setRestockQty('')
-    setIsAddMode(true)
+    setIsAddMode(false)
   }
 
   function handleNumpadPress(val) {
