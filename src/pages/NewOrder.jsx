@@ -241,39 +241,40 @@ export default function NewOrder() {
           {ingredients.filter(i => i.category === 'เครื่องปรุงและของแถม').length > 0 && (
             <div style={{ marginBottom: 18 }}>
               <h3 style={{ marginBottom: 10, color: '#6b7280' }}>เครื่องปรุงและของแถม (ไม่คิดเงิน)</h3>
-              <div className="card" style={{ padding: '12px 14px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {ingredients.filter(i => i.category === 'เครื่องปรุงและของแถม').map(ing => {
-                    const qty = condiments[ing.id] || 0
-                    return (
-                      <div key={ing.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div>
-                          <div className="font-semibold text-sm">{ing.name}</div>
-                          <div className="text-xs text-muted">สต็อกคงเหลือ: {fmt(ing.stock, 0)} {ing.unitType === 'gram' ? 'ก.' : 'ชิ้น'}</div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <button 
-                            type="button" 
-                            className="btn btn-icon btn-secondary" 
-                            style={{ minWidth: 38, minHeight: 38, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
-                            onClick={() => setCondiments(prev => ({ ...prev, [ing.id]: Math.max(0, qty - 1) }))}
-                          >
-                            <Minus size={16} />
-                          </button>
-                          <span style={{ minWidth: 24, textAlign: 'center', fontWeight: 700, fontSize: '1.1rem' }}>{qty}</span>
-                          <button 
-                            type="button" 
-                            className="btn btn-icon btn-secondary" 
-                            style={{ minWidth: 38, minHeight: 38, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
-                            onClick={() => setCondiments(prev => ({ ...prev, [ing.id]: qty + 1 }))}
-                          >
-                            <Plus size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {ingredients.filter(i => i.category === 'เครื่องปรุงและของแถม').map(ing => {
+                  const qty = condiments[ing.id] || 0
+                  const isSelected = qty > 0
+                  return (
+                    <button 
+                      key={ing.id} 
+                      type="button"
+                      onClick={() => setCondiments(prev => ({ ...prev, [ing.id]: qty + 1 }))}
+                      style={{ 
+                        position: 'relative', 
+                        textAlign: 'left', 
+                        cursor: 'pointer', 
+                        background: isSelected ? '#fff0eb' : 'white', 
+                        border: '2px solid', 
+                        borderColor: isSelected ? '#FF6B35' : '#e5e7eb', 
+                        borderRadius: 14, 
+                        padding: '14px', 
+                        transition: 'all 0.12s',
+                        width: '100%',
+                        display: 'block'
+                      }}
+                    >
+                      {isSelected && (
+                        <span style={{ position: 'absolute', top: 8, right: 8, background: '#FF6B35', color: 'white', borderRadius: 999, minWidth: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 700, padding: '0 6px' }}>
+                          {qty}
+                        </span>
+                      )}
+                      <div className="font-semibold" style={{ fontSize: '0.98rem', paddingRight: 24 }}>{ing.name}</div>
+                      <div className="text-xs text-muted mt-1">คงเหลือ: {fmt(ing.stock, 0)} {ing.unitType === 'gram' ? 'ก.' : 'ชิ้น'}</div>
+                      <div className="font-bold text-success text-xs mt-1">ฟรี (0 ฿)</div>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
