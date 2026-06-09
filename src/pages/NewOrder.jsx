@@ -31,6 +31,7 @@ export default function NewOrder() {
   const [orderDateTime, setOrderDateTime] = useState(nowLocalInput())
   const [showSuccess, setShowSuccess] = useState(false)
   const [savedOrder, setSavedOrder] = useState(null)
+  const [condiments, setCondiments] = useState({})
 
   async function loadData() {
     setLoading(true)
@@ -90,7 +91,8 @@ export default function NewOrder() {
   }, [cart, menus, ingredients, channel, gpEnabled, adsEnabled, adsFee, couponEnabled, couponAmount])
 
   async function handleSave() {
-    if (cart.length === 0 || !channel) return
+    const hasCondiments = Object.values(condiments).some(qty => qty > 0)
+    if ((cart.length === 0 && !hasCondiments) || !channel) return
     if (!orderNo.trim()) {
       alert('กรุณาใส่เลขออเดอร์')
       return
@@ -104,15 +106,43 @@ export default function NewOrder() {
         setSaving(false)
         return
       }
-      const items = cart.map(c => {
-        const menu = menus.find(m => m.id === c.menuId)
-        const snapshot = (menu.latestRecipe || []).map(r => {
-          const ing = ingredients.find(i => i.id === r.ingredientId)
-          return { ingredientId: r.ingredientId, name: ing?.name || '', qty: Number(r.qty), unitType: ing?.unitType || r.unitType, costPerUnit: ing?.costPerUnit || 0, subtotal: (ing?.costPerUnit || 0) * Number(r.qty) }
+      const condimentItems = Object.entries(condiments)
+        .filter(([_, qty]) => qty > 0)
+        .map(([ingId, qty]) => {
+          const ing = ingredients.find(i => i.id === ingId)
+          return {
+            menuId: `condiment-${ingId}`,
+            menuName: `[ของแถม] ${ing?.name || 'เครื่องปรุง'}`,
+            sellingPrice: 0,
+            qty: qty,
+            ingredients: [
+              {
+                ingredientId: ingId,
+                name: ing?.name || '',
+                qty: 1,
+                unitType: ing?.unitType || 'piece',
+                costPerUnit: 0,
+                subtotal: 0
+              }
+            ],
+            unitCost: 0,
+            lineCost: 0,
+            lineRevenue: 0
+          }
         })
-        const unitCost = snapshot.reduce((s, x) => s + x.subtotal, 0)
-        return { menuId: menu.id, menuName: `${menu.name}${menu.size ? ` (${menu.size})` : ''}`, sellingPrice: menu.sellingPrice, qty: c.qty, ingredients: snapshot, unitCost, lineCost: unitCost * c.qty, lineRevenue: menu.sellingPrice * c.qty }
-      })
+
+      const items = [
+        ...cart.map(c => {
+          const menu = menus.find(m => m.id === c.menuId)
+          const snapshot = (menu.latestRecipe || []).map(r => {
+            const ing = ingredients.find(i => i.id === r.ingredientId)
+            return { ingredientId: r.ingredientId, name: ing?.name || '', qty: Number(r.qty), unitType: ing?.unitType || r.unitType, costPerUnit: ing?.costPerUnit || 0, subtotal: (ing?.costPerUnit || 0) * Number(r.qty) }
+          })
+          const unitCost = snapshot.reduce((s, x) => s + x.subtotal, 0)
+          return { menuId: menu.id, menuName: `${menu.name}${menu.size ? ` (${menu.size})` : ''}`, sellingPrice: menu.sellingPrice, qty: c.qty, ingredients: snapshot, unitCost, lineCost: unitCost * c.qty, lineRevenue: menu.sellingPrice * c.qty }
+        }),
+        ...condimentItems
+      ]
       const order = await orderDb.add(currentShop.id, { channelName: channel.name, gpPercent: channel.gpPercent, gpEnabled, adsFee: calc.ads, couponDiscount: calc.coupon, items, note: note.trim(), orderNo: orderNoNum, createdAt: orderDateTime ? fromLocalInput(orderDateTime) : undefined })
       setSavedOrder(order); setShowSuccess(true)
       await loadData()
@@ -122,6 +152,7 @@ export default function NewOrder() {
 
   function resetOrder() {
     setCart([]); setCouponEnabled(false); setCouponAmount(''); setAdsEnabled(false); setNote(''); setOrderNo(''); setOrderDateTime(nowLocalInput())
+    setCondiments({})
     if (channel) setAdsFee(channel.adsDefault)
     setShowSuccess(false); setSavedOrder(null)
   }
@@ -161,7 +192,7 @@ export default function NewOrder() {
     <div className="page">
       <div className="page-header">
         <h1>เปิดออเดอร์</h1>
-        {cart.length > 0 && <button className="btn btn-secondary" onClick={resetOrder}><Trash2 size={16} /> ล้าง</button>}
+        {(cart.length > 0 || Object.values(condiments).some(q => q > 0)) && <button className="btn btn-secondary" onClick={resetOrder}><Trash2 size={16} /> ล้าง</button>}
       </div>
 
       <div className="form-group" style={{ marginBottom: 16 }}>
@@ -206,7 +237,48 @@ export default function NewOrder() {
           })}
           <div style={{ marginBottom: 4 }} />
 
-          {cart.length === 0 ? (
+          {/* Condiments Section */}
+          {ingredients.filter(i => i.category === 'เครื่องปรุงและของแถม').length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <h3 style={{ marginBottom: 10, color: '#6b7280' }}>เครื่องปรุงและของแถม (ไม่คิดเงิน)</h3>
+              <div className="card" style={{ padding: '12px 14px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {ingredients.filter(i => i.category === 'เครื่องปรุงและของแถม').map(ing => {
+                    const qty = condiments[ing.id] || 0
+                    return (
+                      <div key={ing.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                          <div className="font-semibold text-sm">{ing.name}</div>
+                          <div className="text-xs text-muted">สต็อกคงเหลือ: {fmt(ing.stock, 0)} {ing.unitType === 'gram' ? 'ก.' : 'ชิ้น'}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <button 
+                            type="button" 
+                            className="btn btn-icon btn-secondary" 
+                            style={{ minWidth: 38, minHeight: 38, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                            onClick={() => setCondiments(prev => ({ ...prev, [ing.id]: Math.max(0, qty - 1) }))}
+                          >
+                            <Minus size={16} />
+                          </button>
+                          <span style={{ minWidth: 24, textAlign: 'center', fontWeight: 700, fontSize: '1.1rem' }}>{qty}</span>
+                          <button 
+                            type="button" 
+                            className="btn btn-icon btn-secondary" 
+                            style={{ minWidth: 38, minHeight: 38, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                            onClick={() => setCondiments(prev => ({ ...prev, [ing.id]: qty + 1 }))}
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {cart.length === 0 && !Object.values(condiments).some(q => q > 0) ? (
             <div className="empty-state" style={{ padding: '24px' }}><ShoppingCart size={40} /><p className="text-sm mt-2">ยังไม่มีรายการ</p></div>
           ) : (
             <>
@@ -216,7 +288,7 @@ export default function NewOrder() {
                   const menu = menus.find(m => m.id === c.menuId)
                   if (!menu) return null
                   return (
-                    <div key={c.menuId} style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: idx < cart.length - 1 ? '1px solid #f3f4f6' : 'none', gap: 10 }}>
+                    <div key={c.menuId} style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: idx < cart.length - 1 || Object.values(condiments).some(q => q > 0) ? '1px solid #f3f4f6' : 'none', gap: 10 }}>
                       <div style={{ flex: 1 }}><div className="font-semibold text-sm">{menu.name}{menu.size ? ` (${menu.size})` : ''}</div><div className="text-xs text-muted">{fmt(menu.sellingPrice)} ฿</div></div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <button className="btn btn-icon btn-secondary" style={{ minWidth: 38, minHeight: 38, padding: 6 }} onClick={() => changeQty(c.menuId, -1)}><Minus size={16} /></button>
@@ -224,6 +296,22 @@ export default function NewOrder() {
                         <button className="btn btn-icon btn-secondary" style={{ minWidth: 38, minHeight: 38, padding: 6 }} onClick={() => changeQty(c.menuId, 1)}><Plus size={16} /></button>
                       </div>
                       <div style={{ minWidth: 64, textAlign: 'right' }} className="font-semibold text-sm">{fmt(menu.sellingPrice * c.qty)} ฿</div>
+                    </div>
+                  )
+                })}
+                {Object.entries(condiments).map(([ingId, qty], idx, arr) => {
+                  if (qty <= 0) return null
+                  const ing = ingredients.find(i => i.id === ingId)
+                  if (!ing) return null
+                  return (
+                    <div key={`condiment-cart-${ingId}`} style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: idx < arr.length - 1 ? '1px solid #f3f4f6' : 'none', gap: 10 }}>
+                      <div style={{ flex: 1 }}><div className="font-semibold text-sm">[ของแถม] {ing.name}</div><div className="text-xs text-muted">0 ฿ (ไม่คิดต้นทุน)</div></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button className="btn btn-icon btn-secondary" style={{ minWidth: 38, minHeight: 38, padding: 6 }} onClick={() => setCondiments(prev => ({ ...prev, [ingId]: qty - 1 }))}><Minus size={16} /></button>
+                        <span style={{ minWidth: 24, textAlign: 'center', fontWeight: 700, fontSize: '1.1rem' }}>{qty}</span>
+                        <button className="btn btn-icon btn-secondary" style={{ minWidth: 38, minHeight: 38, padding: 6 }} onClick={() => setCondiments(prev => ({ ...prev, [ingId]: qty + 1 }))}><Plus size={16} /></button>
+                      </div>
+                      <div style={{ minWidth: 64, textAlign: 'right' }} className="font-semibold text-sm">0 ฿</div>
                     </div>
                   )
                 })}
@@ -269,7 +357,7 @@ export default function NewOrder() {
                 </div>
               </div>
 
-              <button className="btn btn-success btn-lg btn-full" onClick={handleSave} disabled={saving || cart.length === 0 || !orderNo.trim()}>
+              <button className="btn btn-success btn-lg btn-full" onClick={handleSave} disabled={saving || (cart.length === 0 && !Object.values(condiments).some(q => q > 0)) || !orderNo.trim()}>
                 <CheckCircle size={22} /> {saving ? 'กำลังบันทึก...' : 'บันทึกออเดอร์'}
               </button>
             </>
