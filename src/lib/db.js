@@ -335,12 +335,12 @@ export const orderDb = {
     return (data || []).map(mapOrder)
   },
 
-  async existsOrderNoToday(shopId, orderNo) {
+  async existsOrderNoOnDate(shopId, orderNo, dateStr) {
     // ใช้เวลาไทย UTC+7 — เช็คซ้ำเฉพาะภายในวันเดียวกัน
-    const thai = new Date(Date.now() + 7 * 60 * 60 * 1000)
-    const dateStr = thai.toISOString().slice(0, 10)
-    const start = new Date(`${dateStr}T00:00:00+07:00`).toISOString()
-    const end = new Date(`${dateStr}T23:59:59+07:00`).toISOString()
+    // dateStr รูปแบบ 'YYYY-MM-DD' (ถ้าไม่ส่งมาใช้วันนี้ตามเวลาไทย)
+    const d = dateStr || new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const start = new Date(`${d}T00:00:00+07:00`).toISOString()
+    const end = new Date(`${d}T23:59:59.999+07:00`).toISOString()
     const { data, error } = await supabase.from('orders').select('id')
       .eq('shop_id', shopId).eq('order_no', orderNo)
       .gte('created_at', start).lte('created_at', end)
@@ -348,7 +348,7 @@ export const orderDb = {
     return (data || []).length > 0
   },
 
-  async add(shopId, { channelName, gpPercent, gpEnabled, adsFee, couponDiscount, items, note, orderNo }) {
+  async add(shopId, { channelName, gpPercent, gpEnabled, adsFee, couponDiscount, items, note, orderNo, createdAt }) {
     const subtotal = items.reduce((s, it) => s + it.lineRevenue, 0)
     const totalCost = items.reduce((s, it) => s + it.lineCost, 0)
     const gpAmount = gpEnabled ? subtotal * (Number(gpPercent) / 100) : 0
@@ -374,6 +374,7 @@ export const orderDb = {
       item_count: itemCount,
       note: note || '',
       order_no: orderNo ?? null,
+      ...(createdAt ? { created_at: createdAt } : {}),
     }).select().single()
     if (error) throw error
 

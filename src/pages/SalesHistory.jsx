@@ -5,6 +5,8 @@ import { History, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 
 function fmt(n) { return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(iso) { return new Date(iso).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) }
+// 'YYYY-MM-DD' -> 'DD/MM/YYYY'
+function fmtDmy(d) { if (!d) return ''; const [y, m, day] = d.split('-'); return `${day}/${m}/${y}` }
 // ISO -> ค่าใส่ input datetime-local ตามเวลาไทย
 function toLocalInput(iso) { return new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 16) }
 // ค่าจาก input (เวลาไทย) -> ISO
@@ -75,7 +77,10 @@ export default function SalesHistory() {
       <div className="form-group" style={{ marginBottom: 16 }}>
         <label className="form-label">กรองตามวันที่</label>
         <div style={{ display: 'flex', gap: 8 }}>
-          <input className="form-control" type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ flex: 1 }} />
+          <div style={{ position: 'relative', flex: 1 }}>
+            <div className="form-control" style={{ display: 'flex', alignItems: 'center' }}>{filterDate ? fmtDmy(filterDate) : 'ทุกวัน'}</div>
+            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
+          </div>
           <button className="btn btn-secondary" onClick={() => setFilterDate('')} style={{ whiteSpace: 'nowrap' }}>ทั้งหมด</button>
         </div>
       </div>

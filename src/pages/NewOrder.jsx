@@ -4,6 +4,9 @@ import { menuDb, ingredientDb, orderDb, channelDb } from '../lib/db'
 import { Plus, Minus, CheckCircle, ShoppingCart, Trash2, Receipt } from 'lucide-react'
 
 function fmt(n, d = 2) { return Number(n).toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d }) }
+// วันเวลาปัจจุบันตามเวลาไทย สำหรับ input datetime-local
+function nowLocalInput() { return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 16) }
+function fromLocalInput(val) { return new Date(`${val}:00+07:00`).toISOString() }
 
 const MENU_TYPES = ['พิซซ่า', 'ทอปปิ้งเสริม', 'เครื่องดื่ม', 'อื่นๆ']
 const MENU_TYPE_ORDER = ['พิซซ่า', 'ทอปปิ้งเสริม', 'เครื่องดื่ม', 'อื่นๆ']
@@ -25,6 +28,7 @@ export default function NewOrder() {
   const [couponAmount, setCouponAmount] = useState('')
   const [note, setNote] = useState('')
   const [orderNo, setOrderNo] = useState('')
+  const [orderDateTime, setOrderDateTime] = useState(nowLocalInput())
   const [showSuccess, setShowSuccess] = useState(false)
   const [savedOrder, setSavedOrder] = useState(null)
 
@@ -92,10 +96,11 @@ export default function NewOrder() {
       return
     }
     const orderNoNum = Number(orderNo.trim())
+    const dateStr = (orderDateTime || nowLocalInput()).slice(0, 10)
     setSaving(true)
     try {
-      if (await orderDb.existsOrderNoToday(currentShop.id, orderNoNum)) {
-        alert(`เลขออเดอร์ ${orderNoNum} ถูกใช้ไปแล้วในวันนี้ กรุณาใช้เลขอื่น`)
+      if (await orderDb.existsOrderNoOnDate(currentShop.id, orderNoNum, dateStr)) {
+        alert(`เลขออเดอร์ ${orderNoNum} ถูกใช้ไปแล้วในวันที่เลือก กรุณาใช้เลขอื่น`)
         setSaving(false)
         return
       }
@@ -108,7 +113,7 @@ export default function NewOrder() {
         const unitCost = snapshot.reduce((s, x) => s + x.subtotal, 0)
         return { menuId: menu.id, menuName: `${menu.name}${menu.size ? ` (${menu.size})` : ''}`, sellingPrice: menu.sellingPrice, qty: c.qty, ingredients: snapshot, unitCost, lineCost: unitCost * c.qty, lineRevenue: menu.sellingPrice * c.qty }
       })
-      const order = await orderDb.add(currentShop.id, { channelName: channel.name, gpPercent: channel.gpPercent, gpEnabled, adsFee: calc.ads, couponDiscount: calc.coupon, items, note: note.trim(), orderNo: orderNoNum })
+      const order = await orderDb.add(currentShop.id, { channelName: channel.name, gpPercent: channel.gpPercent, gpEnabled, adsFee: calc.ads, couponDiscount: calc.coupon, items, note: note.trim(), orderNo: orderNoNum, createdAt: orderDateTime ? fromLocalInput(orderDateTime) : undefined })
       setSavedOrder(order); setShowSuccess(true)
       await loadData()
     } catch(e) { console.error(e) }
@@ -116,7 +121,7 @@ export default function NewOrder() {
   }
 
   function resetOrder() {
-    setCart([]); setCouponEnabled(false); setCouponAmount(''); setAdsEnabled(false); setNote(''); setOrderNo('')
+    setCart([]); setCouponEnabled(false); setCouponAmount(''); setAdsEnabled(false); setNote(''); setOrderNo(''); setOrderDateTime(nowLocalInput())
     if (channel) setAdsFee(channel.adsDefault)
     setShowSuccess(false); setSavedOrder(null)
   }
@@ -162,6 +167,11 @@ export default function NewOrder() {
       <div className="form-group" style={{ marginBottom: 16 }}>
         <label className="form-label">เลขออเดอร์ *</label>
         <input className="form-control" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="เช่น 101" value={orderNo} onChange={e => setOrderNo(e.target.value.replace(/[^0-9]/g, ''))} />
+      </div>
+
+      <div className="form-group" style={{ marginBottom: 16 }}>
+        <label className="form-label">วันที่/เวลา</label>
+        <input className="form-control" type="datetime-local" value={orderDateTime} onChange={e => setOrderDateTime(e.target.value)} />
       </div>
 
       {menus.length === 0 ? (
