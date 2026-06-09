@@ -390,6 +390,30 @@ export const orderDb = {
     return mapOrder(row)
   },
 
+  async update(shopId, id, { orderNo, channelName, gpPercent, gpEnabled, note, createdAt }) {
+    const updates = {}
+    if (orderNo !== undefined) updates.order_no = orderNo
+    if (note !== undefined) updates.note = note
+    if (createdAt !== undefined) updates.created_at = createdAt
+    // เปลี่ยนช่องทาง → คำนวณ GP / กำไรใหม่จากยอดเดิม
+    if (channelName !== undefined) {
+      const { data: cur, error: e1 } = await supabase.from('orders')
+        .select('subtotal, total_cost, ads_fee, coupon_discount').eq('id', id).eq('shop_id', shopId).single()
+      if (e1) throw e1
+      const gpAmount = gpEnabled ? cur.subtotal * (Number(gpPercent) / 100) : 0
+      const netReceived = cur.subtotal - gpAmount - cur.ads_fee - cur.coupon_discount
+      updates.channel_name = channelName
+      updates.gp_percent = Number(gpPercent)
+      updates.gp_enabled = !!gpEnabled
+      updates.gp_amount = gpAmount
+      updates.net_received = netReceived
+      updates.net_profit = netReceived - cur.total_cost
+    }
+    const { data: row, error } = await supabase.from('orders').update(updates).eq('id', id).eq('shop_id', shopId).select().single()
+    if (error) throw error
+    return mapOrder(row)
+  },
+
   async getByDate(shopId, dateStr) {
     // ขอบเขตวันตามเวลาไทย UTC+7 (ให้ตรงกับวันที่ที่แสดงผล)
     const start = new Date(`${dateStr}T00:00:00+07:00`).toISOString()

@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useShop } from '../lib/shopContext'
-import { orderDb } from '../lib/db'
-import { History, ChevronDown, ChevronUp } from 'lucide-react'
+import { orderDb, channelDb } from '../lib/db'
+import { History, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 
 function fmt(n) { return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(iso) { return new Date(iso).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) }
+// ISO -> ค่าใส่ input datetime-local ตามเวลาไทย
+function toLocalInput(iso) { return new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 16) }
+// ค่าจาก input (เวลาไทย) -> ISO
+function fromLocalInput(val) { return new Date(`${val}:00+07:00`).toISOString() }
 
 export default function SalesHistory() {
   const { currentShop } = useShop()
@@ -12,20 +16,52 @@ export default function SalesHistory() {
   const [filterDate, setFilterDate] = useState(new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10))
   const [expandedId, setExpandedId] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [channels, setChannels] = useState([])
+  const [editOrder, setEditOrder] = useState(null)
+  const [editForm, setEditForm] = useState({ orderNo: '', channelName: '', datetime: '', note: '' })
+  const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const data = filterDate
-          ? await orderDb.getByDate(currentShop.id, filterDate)
-          : await orderDb.getAll(currentShop.id)
-        setOrders(data)
-      } catch(e) { console.error(e) }
-      finally { setLoading(false) }
-    }
-    load()
-  }, [currentShop.id, filterDate])
+  async function load() {
+    setLoading(true)
+    try {
+      const data = filterDate
+        ? await orderDb.getByDate(currentShop.id, filterDate)
+        : await orderDb.getAll(currentShop.id)
+      setOrders(data)
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [currentShop.id, filterDate])
+  useEffect(() => { channelDb.getAll(currentShop.id).then(setChannels).catch(console.error) }, [currentShop.id])
+
+  function openEdit(order) {
+    setEditOrder(order)
+    setEditForm({
+      orderNo: order.orderNo != null ? String(order.orderNo) : '',
+      channelName: order.channelName,
+      datetime: toLocalInput(order.createdAt),
+      note: order.note || '',
+    })
+  }
+
+  async function saveEdit() {
+    if (!editOrder) return
+    setSaving(true)
+    try {
+      const ch = channels.find(c => c.name === editForm.channelName)
+      const channelChanged = editForm.channelName !== editOrder.channelName
+      await orderDb.update(currentShop.id, editOrder.id, {
+        orderNo: editForm.orderNo.trim() ? Number(editForm.orderNo.trim()) : null,
+        note: editForm.note.trim(),
+        createdAt: fromLocalInput(editForm.datetime),
+        ...(channelChanged && ch ? { channelName: ch.name, gpPercent: ch.gpPercent, gpEnabled: ch.gpPercent > 0 } : {}),
+      })
+      setEditOrder(null)
+      await load()
+    } catch(e) { console.error(e); alert('บันทึกไม่สำเร็จ: ' + e.message) }
+    finally { setSaving(false) }
+  }
 
   const totalSubtotal = orders.reduce((s, o) => s + o.subtotal, 0)
   const totalFees = orders.reduce((s, o) => s + o.gpAmount + o.adsFee + o.couponDiscount, 0)
@@ -75,6 +111,7 @@ export default function SalesHistory() {
                       <div className="text-xs text-muted mt-1">{fmtDate(order.createdAt)}</div>
                     </div>
                     <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button className="btn btn-icon btn-secondary" style={{ minWidth: 34, minHeight: 34, padding: 6 }} onClick={(e) => { e.stopPropagation(); openEdit(order) }}><Pencil size={15} /></button>
                       <div><div className={`font-bold ${order.netProfit >= 0 ? 'text-success' : 'text-danger'}`}>{fmt(order.netProfit)} ฿</div><div className="text-xs text-muted">กำไรสุทธิ</div></div>
                       {expanded ? <ChevronUp size={16} color="#9ca3af" /> : <ChevronDown size={16} color="#9ca3af" />}
                     </div>
@@ -109,6 +146,43 @@ export default function SalesHistory() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {editOrder && (
+        <div className="modal-overlay" onClick={() => setEditOrder(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>แก้ไขออเดอร์</h2>
+              <button className="btn btn-icon btn-secondary" onClick={() => setEditOrder(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">เลขออเดอร์</label>
+                <input className="form-control" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="เช่น 101" value={editForm.orderNo} onChange={e => setEditForm(f => ({ ...f, orderNo: e.target.value.replace(/[^0-9]/g, '') }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">ช่องทางขาย</label>
+                <select className="form-control" value={editForm.channelName} onChange={e => setEditForm(f => ({ ...f, channelName: e.target.value }))}>
+                  {channels.some(c => c.name === editForm.channelName) ? null : <option value={editForm.channelName}>{editForm.channelName}</option>}
+                  {channels.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+                <div className="text-xs text-muted mt-1">เปลี่ยนช่องทาง ระบบจะคำนวณ GP/กำไรใหม่ให้</div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">วันที่/เวลา</label>
+                <input className="form-control" type="datetime-local" value={editForm.datetime} onChange={e => setEditForm(f => ({ ...f, datetime: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">หมายเหตุ</label>
+                <input className="form-control" placeholder="ไม่บังคับ" value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary flex-1" onClick={() => setEditOrder(null)}>ยกเลิก</button>
+              <button className="btn btn-primary flex-1" onClick={saveEdit} disabled={saving || !editForm.datetime}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
