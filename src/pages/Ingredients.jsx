@@ -111,12 +111,19 @@ export default function Ingredients() {
   const costPerUnit = form.purchaseQty && form.purchasePrice
     ? (Number(form.purchasePrice) / Number(form.purchaseQty)).toFixed(4) : null
 
+  const totalValue = items.reduce((sum, item) => sum + (Number(item.stock || 0) * Number(item.costPerUnit || 0)), 0)
+
   if (loading) return <div className="page" style={{ textAlign: 'center', paddingTop: 60, color: '#9ca3af' }}>กำลังโหลด...</div>
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h1>วัตถุดิบ</h1>
+      <div className="page-header" style={{ marginBottom: 12 }}>
+        <div>
+          <h1>วัตถุดิบ</h1>
+          <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: 2 }}>
+            มูลค่ารวม: <strong className="text-primary">{fmt(totalValue, 2)} ฿</strong>
+          </div>
+        </div>
         <button className="btn btn-primary" onClick={openAdd}><Plus size={20} /></button>
       </div>
 
