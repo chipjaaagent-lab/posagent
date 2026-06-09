@@ -85,8 +85,8 @@ export default function Dashboard({ onNavigate }) {
       </div>
 
       <div className="stat-card" style={{ marginBottom: 16, background: s.netProfit >= 0 ? '#f0fdf4' : '#fef2f2', border: `2px solid ${s.netProfit >= 0 ? '#22c55e' : '#ef4444'}` }}>
-        <div className="stat-label">📈 กำไรสุทธิวันนี้ (หลังหักทุกอย่าง)</div>
-        <div className="stat-value text-success" style={{ fontSize: '2rem' }}>{fmt(s.netProfit)} บาท</div>
+        <div className="stat-label">{s.netProfit >= 0 ? '📈 กำไรสุทธิวันนี้' : '📉 ขาดทุนสุทธิวันนี้'} (หลังหักทุกอย่าง)</div>
+        <div className={`stat-value ${s.netProfit >= 0 ? 'text-success' : 'text-danger'}`} style={{ fontSize: '2rem' }}>{fmt(s.netProfit)} บาท</div>
         <div className="text-xs text-muted mt-1">คิดเป็น {margin}% ของยอดขาย</div>
       </div>
 
@@ -94,7 +94,7 @@ export default function Dashboard({ onNavigate }) {
         <div className="alert alert-success" style={{ borderRadius: 12, marginBottom: 20 }}>
           <TrendingUp size={20} style={{ flexShrink: 0 }} />
           <div className="text-sm">
-            <span className="font-semibold">ยอดขาย ≠ กำไร</span> — ขายได้ <strong>{fmt(s.subtotal)} ฿</strong> หัก GP/Ads/คูปอง <strong>{fmt(s.totalFees)} ฿</strong> และต้นทุน <strong>{fmt(s.totalCost)} ฿</strong> เหลือกำไรจริง <strong>{fmt(s.netProfit)} ฿</strong>
+            <span className="font-semibold">ยอดขาย ≠ กำไร</span> — ขายได้ <strong>{fmt(s.subtotal)} ฿</strong> หัก GP/Ads/คูปอง <strong>{fmt(s.totalFees)} ฿</strong> และต้นทุน <strong>{fmt(s.totalCost)} ฿</strong> {s.netProfit >= 0 ? 'เหลือกำไรจริง' : 'ขาดทุนจริง'} <strong>{fmt(s.netProfit)} ฿</strong>
           </div>
         </div>
       )}

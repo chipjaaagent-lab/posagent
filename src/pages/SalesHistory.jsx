@@ -91,7 +91,7 @@ export default function SalesHistory() {
           <div style={{ textAlign: 'center' }}><div className="text-xs text-muted">ยอดขาย</div><div className="font-bold">{fmt(totalSubtotal)}</div></div>
           <div style={{ textAlign: 'center' }}><div className="text-xs text-muted">ค่าธรรมเนียม</div><div className="font-bold text-warning">{fmt(totalFees)}</div></div>
           <div style={{ textAlign: 'center' }}><div className="text-xs text-muted">ต้นทุน</div><div className="font-bold text-danger">{fmt(totalCost)}</div></div>
-          <div style={{ textAlign: 'center' }}><div className="text-xs text-muted">กำไรสุทธิ</div><div className="font-bold text-success">{fmt(totalProfit)}</div></div>
+          <div style={{ textAlign: 'center' }}><div className="text-xs text-muted">{totalProfit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'}</div><div className={`font-bold ${totalProfit >= 0 ? 'text-success' : 'text-danger'}`}>{fmt(totalProfit)}</div></div>
         </div>
       )}
 
@@ -117,7 +117,7 @@ export default function SalesHistory() {
                     </div>
                     <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <button className="btn btn-icon btn-secondary" style={{ minWidth: 34, minHeight: 34, padding: 6 }} onClick={(e) => { e.stopPropagation(); openEdit(order) }}><Pencil size={15} /></button>
-                      <div><div className={`font-bold ${order.netProfit >= 0 ? 'text-success' : 'text-danger'}`}>{fmt(order.netProfit)} ฿</div><div className="text-xs text-muted">กำไรสุทธิ</div></div>
+                      <div><div className={`font-bold ${order.netProfit >= 0 ? 'text-success' : 'text-danger'}`}>{fmt(order.netProfit)} ฿</div><div className="text-xs text-muted">{order.netProfit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'}</div></div>
                       {expanded ? <ChevronUp size={16} color="#9ca3af" /> : <ChevronDown size={16} color="#9ca3af" />}
                     </div>
                   </div>
@@ -143,7 +143,7 @@ export default function SalesHistory() {
                     <Row label="ต้นทุนวัตถุดิบ" value={`-${fmt(order.totalCost)}`} danger />
                     <div className="divider" />
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span className="font-bold">กำไรสุทธิ</span>
+                      <span className="font-bold">{order.netProfit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'}</span>
                       <strong className={order.netProfit >= 0 ? 'text-success' : 'text-danger'} style={{ fontSize: '1.1rem' }}>{fmt(order.netProfit)} ฿</strong>
                     </div>
                   </div>

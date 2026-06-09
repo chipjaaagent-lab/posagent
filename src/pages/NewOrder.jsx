@@ -147,7 +147,7 @@ export default function NewOrder() {
             <Row label="ต้นทุน" value={`-${fmt(savedOrder.totalCost)}`} danger />
             <div className="divider" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="font-bold">กำไรสุทธิ</span>
+              <span className="font-bold">{savedOrder.netProfit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'}</span>
               <strong className={savedOrder.netProfit >= 0 ? 'text-success' : 'text-danger'} style={{ fontSize: '1.5rem' }}>{fmt(savedOrder.netProfit)} ฿</strong>
             </div>
           </div>
@@ -263,7 +263,7 @@ export default function NewOrder() {
                   <Row label="ต้นทุนวัตถุดิบ" value={`-${fmt(calc.totalCost)} ฿`} danger />
                   <div className="divider" />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="font-bold">กำไรสุทธิ</span>
+                    <span className="font-bold">{calc.netProfit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'}</span>
                     <strong className={calc.netProfit >= 0 ? 'text-success' : 'text-danger'} style={{ fontSize: '1.5rem' }}>{fmt(calc.netProfit)} ฿</strong>
                   </div>
                 </div>
